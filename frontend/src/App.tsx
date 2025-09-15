@@ -3,12 +3,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
 import type { Build, Enemy, LootItem } from './types'
+import { AmuletPanel } from './components/AmuletPanel'
 import { ArmouryPanel } from './components/ArmouryPanel'
 import { BestiaryPanel } from './components/BestiaryPanel'
 import { BuildLibrary } from './components/BuildLibrary'
+import { CloakPanel } from './components/CloakPanel'
+import { ClothingPanel } from './components/ClothingPanel'
 import { LootChecklist } from './components/LootChecklist'
+import { FootwearPanel } from './components/FootwearPanel'
+import { HandwearPanel } from './components/HandwearPanel'
+import { HeadwearPanel } from './components/HeadwearPanel'
 import { PartyPlanner } from './components/PartyPlanner'
+import { RingPanel } from './components/RingPanel'
 import { SpellLibrary } from './components/SpellLibrary'
+import { ShieldPanel } from './components/ShieldPanel'
 import { WeaponPanel } from './components/WeaponPanel'
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
@@ -34,6 +42,38 @@ function App() {
     queryKey: ['armours'],
     queryFn: async () => sortByName(await api.getArmours()),
   })
+  const ringsQuery = useQuery({
+    queryKey: ['rings'],
+    queryFn: async () => sortByName(await api.getRings()),
+  })
+  const amuletsQuery = useQuery({
+    queryKey: ['amulets'],
+    queryFn: async () => sortByName(await api.getAmulets()),
+  })
+  const cloaksQuery = useQuery({
+    queryKey: ['cloaks'],
+    queryFn: async () => sortByName(await api.getCloaks()),
+  })
+  const clothingQuery = useQuery({
+    queryKey: ['clothing'],
+    queryFn: async () => sortByName(await api.getClothing()),
+  })
+  const footwearsQuery = useQuery({
+    queryKey: ['footwears'],
+    queryFn: async () => sortByName(await api.getFootwears()),
+  })
+  const handwearsQuery = useQuery({
+    queryKey: ['handwears'],
+    queryFn: async () => sortByName(await api.getHandwears()),
+  })
+  const headwearsQuery = useQuery({
+    queryKey: ['headwears'],
+    queryFn: async () => sortByName(await api.getHeadwears()),
+  })
+  const shieldsQuery = useQuery({
+    queryKey: ['shields'],
+    queryFn: async () => sortByName(await api.getShields()),
+  })
   const weaponsQuery = useQuery({
     queryKey: ['weapons'],
     queryFn: async () => sortByName(await api.getWeapons()),
@@ -56,6 +96,14 @@ function App() {
     buildsQuery,
     enemiesQuery,
     armoursQuery,
+    ringsQuery,
+    amuletsQuery,
+    cloaksQuery,
+    clothingQuery,
+    footwearsQuery,
+    handwearsQuery,
+    headwearsQuery,
+    shieldsQuery,
     weaponsQuery,
     spellsQuery,
     racesQuery,
@@ -128,6 +176,14 @@ function App() {
   const builds = buildsQuery.data ?? []
   const enemies = enemiesQuery.data ?? []
   const armours = armoursQuery.data ?? []
+  const rings = ringsQuery.data ?? []
+  const amulets = amuletsQuery.data ?? []
+  const cloaks = cloaksQuery.data ?? []
+  const clothing = clothingQuery.data ?? []
+  const footwears = footwearsQuery.data ?? []
+  const handwears = handwearsQuery.data ?? []
+  const headwears = headwearsQuery.data ?? []
+  const shields = shieldsQuery.data ?? []
   const weapons = weaponsQuery.data ?? []
   const spells = spellsQuery.data ?? []
   const races = racesQuery.data ?? []
@@ -182,7 +238,15 @@ function App() {
               onDelete={handleDeleteBuild}
             />
             <ArmouryPanel armours={armours} />
+            <ShieldPanel shields={shields} />
             <WeaponPanel weapons={weapons} />
+            <ClothingPanel clothing={clothing} />
+            <HeadwearPanel headwears={headwears} />
+            <HandwearPanel handwears={handwears} />
+            <FootwearPanel footwears={footwears} />
+            <CloakPanel cloaks={cloaks} />
+            <RingPanel rings={rings} />
+            <AmuletPanel amulets={amulets} />
             <BestiaryPanel
               enemies={enemies}
               onCreate={handleCreateEnemy}

@@ -62,6 +62,46 @@ export interface ArmourItem {
   specials: ArmourSpecial[]
 }
 
+export type AccessoryLocation = ArmourLocation
+export type AccessorySpecial = ArmourSpecial
+
+export interface AccessoryItemBase {
+  item_id: string
+  name: string
+  description?: string | null
+  quote?: string | null
+  type?: string | null
+  rarity?: string | null
+  weight_kg?: number | null
+  weight_lb?: number | null
+  price_gp?: number | null
+  locations: AccessoryLocation[]
+  specials: AccessorySpecial[]
+}
+
+export type RingItem = AccessoryItemBase
+
+export type AmuletItem = AccessoryItemBase
+
+export type CloakItem = AccessoryItemBase
+
+export type HandwearItem = AccessoryItemBase
+
+export type HeadwearItem = AccessoryItemBase
+
+export interface ClothingItem extends AccessoryItemBase {
+  armour_class_base?: number | null
+  armour_class_modifier?: string | null
+}
+
+export interface FootwearItem extends AccessoryItemBase {
+  required_proficiency?: string | null
+}
+
+export interface ShieldItem extends AccessoryItemBase {
+  shield_class_base?: number | null
+}
+
 export interface WeaponDamage {
   damage_dice?: string | null
   damage_bonus?: number | null

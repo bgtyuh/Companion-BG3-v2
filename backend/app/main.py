@@ -3,13 +3,16 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections import defaultdict
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Type, TypeVar
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from . import schemas
 from .database import execute, fetch_all, fetch_one
+
+EquipmentModel = TypeVar("EquipmentModel", bound=BaseModel)
 
 app = FastAPI(title="Baldur's Gate 3 Companion API")
 
@@ -372,18 +375,27 @@ def delete_enemy(enemy_id: int) -> Response:
     return Response(status_code=204)
 
 
-@app.get("/api/armours", response_model=List[schemas.Armour])
-def list_armours() -> List[schemas.Armour]:
-    items = fetch_all("armours", "SELECT * FROM Items")
-    locations = fetch_all("armours", "SELECT item_id, description FROM Locations")
-    specials = fetch_all("armours", "SELECT item_id, type, name, effect FROM Specials")
+def _list_equipment(
+    db_key: str,
+    model: Type[EquipmentModel],
+    *,
+    extra_fields: Dict[str, str] | None = None,
+) -> List[EquipmentModel]:
+    items = fetch_all(db_key, "SELECT * FROM Items")
+    location_rows = fetch_all(db_key, "SELECT item_id, description FROM Locations")
+    special_rows = fetch_all(
+        db_key,
+        "SELECT item_id, type, name, effect FROM Specials",
+    )
 
     location_map: Dict[str, List[schemas.ArmourLocation]] = defaultdict(list)
-    for row in locations:
-        location_map[row["item_id"]].append(schemas.ArmourLocation(description=row["description"]))
+    for row in location_rows:
+        location_map[row["item_id"]].append(
+            schemas.ArmourLocation(description=row.get("description") or "")
+        )
 
     special_map: Dict[str, List[schemas.ArmourSpecial]] = defaultdict(list)
-    for row in specials:
+    for row in special_rows:
         special_map[row["item_id"]].append(
             schemas.ArmourSpecial(
                 type=row.get("type") or "",
@@ -392,26 +404,96 @@ def list_armours() -> List[schemas.Armour]:
             )
         )
 
-    result: List[schemas.Armour] = []
+    result: List[EquipmentModel] = []
     for item in items:
-        result.append(
-            schemas.Armour(
-                item_id=item["item_id"],
-                name=item.get("name"),
-                description=item.get("description"),
-                quote=item.get("quote"),
-                type=item.get("type"),
-                rarity=item.get("rarity"),
-                weight_kg=item.get("weight_kg"),
-                weight_lb=item.get("weight_lb"),
-                price_gp=item.get("price_gp"),
-                armour_class_base=item.get("armour_class_base"),
-                armour_class_modifier=item.get("armour_class_modifier"),
-                locations=location_map.get(item["item_id"], []),
-                specials=special_map.get(item["item_id"], []),
-            )
-        )
+        payload: Dict[str, Any] = {
+            "item_id": item["item_id"],
+            "name": item.get("name"),
+            "description": item.get("description"),
+            "quote": item.get("quote"),
+            "type": item.get("type"),
+            "rarity": item.get("rarity"),
+            "weight_kg": item.get("weight_kg"),
+            "weight_lb": item.get("weight_lb"),
+            "price_gp": item.get("price_gp"),
+            "locations": location_map.get(item["item_id"], []),
+            "specials": special_map.get(item["item_id"], []),
+        }
+
+        if extra_fields:
+            for field, source in extra_fields.items():
+                payload[field] = item.get(source)
+
+        result.append(model(**payload))
+
     return result
+
+
+@app.get("/api/armours", response_model=List[schemas.Armour])
+def list_armours() -> List[schemas.Armour]:
+    return _list_equipment(
+        "armours",
+        schemas.Armour,
+        extra_fields={
+            "armour_class_base": "armour_class_base",
+            "armour_class_modifier": "armour_class_modifier",
+        },
+    )
+
+
+@app.get("/api/rings", response_model=List[schemas.Ring])
+def list_rings() -> List[schemas.Ring]:
+    return _list_equipment("rings", schemas.Ring)
+
+
+@app.get("/api/amulets", response_model=List[schemas.Amulet])
+def list_amulets() -> List[schemas.Amulet]:
+    return _list_equipment("amulets", schemas.Amulet)
+
+
+@app.get("/api/cloaks", response_model=List[schemas.Cloak])
+def list_cloaks() -> List[schemas.Cloak]:
+    return _list_equipment("cloaks", schemas.Cloak)
+
+
+@app.get("/api/clothing", response_model=List[schemas.Clothing])
+def list_clothing() -> List[schemas.Clothing]:
+    return _list_equipment(
+        "clothing",
+        schemas.Clothing,
+        extra_fields={
+            "armour_class_base": "armour_class_base",
+            "armour_class_modifier": "armour_class_modifier",
+        },
+    )
+
+
+@app.get("/api/footwears", response_model=List[schemas.Footwear])
+def list_footwears() -> List[schemas.Footwear]:
+    return _list_equipment(
+        "footwears",
+        schemas.Footwear,
+        extra_fields={"required_proficiency": "required_proficiency"},
+    )
+
+
+@app.get("/api/handwears", response_model=List[schemas.Handwear])
+def list_handwears() -> List[schemas.Handwear]:
+    return _list_equipment("handwears", schemas.Handwear)
+
+
+@app.get("/api/headwears", response_model=List[schemas.Headwear])
+def list_headwears() -> List[schemas.Headwear]:
+    return _list_equipment("headwears", schemas.Headwear)
+
+
+@app.get("/api/shields", response_model=List[schemas.Shield])
+def list_shields() -> List[schemas.Shield]:
+    return _list_equipment(
+        "shields",
+        schemas.Shield,
+        extra_fields={"shield_class_base": "shield_class_base"},
+    )
 
 
 @app.get("/api/weapons", response_model=List[schemas.Weapon])

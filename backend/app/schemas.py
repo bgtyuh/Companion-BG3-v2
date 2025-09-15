@@ -127,6 +127,53 @@ class Armour(BaseModel):
     specials: List[ArmourSpecial] = Field(default_factory=list)
 
 
+class AccessoryBase(BaseModel):
+    item_id: str
+    name: str
+    description: Optional[str] = None
+    quote: Optional[str] = None
+    type: Optional[str] = None
+    rarity: Optional[str] = None
+    weight_kg: Optional[float] = None
+    weight_lb: Optional[float] = None
+    price_gp: Optional[float] = None
+    locations: List[ArmourLocation] = Field(default_factory=list)
+    specials: List[ArmourSpecial] = Field(default_factory=list)
+
+
+class Ring(AccessoryBase):
+    pass
+
+
+class Amulet(AccessoryBase):
+    pass
+
+
+class Cloak(AccessoryBase):
+    pass
+
+
+class Handwear(AccessoryBase):
+    pass
+
+
+class Headwear(AccessoryBase):
+    pass
+
+
+class Clothing(AccessoryBase):
+    armour_class_base: Optional[int] = None
+    armour_class_modifier: Optional[str] = None
+
+
+class Footwear(AccessoryBase):
+    required_proficiency: Optional[str] = None
+
+
+class Shield(AccessoryBase):
+    shield_class_base: Optional[int] = None
+
+
 class WeaponDamage(BaseModel):
     damage_dice: Optional[str] = None
     damage_bonus: Optional[int] = None

@@ -489,8 +489,22 @@ def list_weapons() -> List[schemas.Weapon]:
 
 @app.get("/api/spells", response_model=List[schemas.Spell])
 def list_spells() -> List[schemas.Spell]:
-    spells = fetch_all("spells", "SELECT name, level, description FROM Spells")
-    properties = fetch_all("spells", "SELECT spell_name, property_name, property_value FROM Spell_Properties")
+    spells = fetch_all(
+        "spells",
+        """
+        SELECT name, level, description
+        FROM Spells
+        ORDER BY name COLLATE NOCASE
+        """,
+    )
+    properties = fetch_all(
+        "spells",
+        """
+        SELECT spell_name, property_name, property_value
+        FROM Spell_Properties
+        ORDER BY spell_name COLLATE NOCASE, property_name COLLATE NOCASE
+        """,
+    )
 
     prop_map: Dict[str, List[schemas.SpellProperty]] = defaultdict(list)
     for row in properties:

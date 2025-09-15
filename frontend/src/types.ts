@@ -248,6 +248,25 @@ export type AbilityScoreKey =
   | 'Wisdom'
   | 'Charisma'
 
+export const equipmentSlotKeys = [
+  'headwear',
+  'amulet',
+  'cloak',
+  'armour',
+  'handwear',
+  'footwear',
+  'ring1',
+  'ring2',
+  'clothing',
+  'mainHand',
+  'offHand',
+  'ranged',
+] as const
+
+export type EquipmentSlotKey = (typeof equipmentSlotKeys)[number]
+
+export type PartyEquipment = Partial<Record<EquipmentSlotKey, string>>
+
 export interface PartyMember {
   id: string
   name: string
@@ -261,8 +280,7 @@ export interface PartyMember {
   abilityScores: Record<AbilityScoreKey, number>
   savingThrows: AbilityScoreKey[]
   skills: string[]
-  equippedWeapons: string[]
-  equippedArmour?: string
+  equipment?: PartyEquipment
   spells: string[]
   notes?: string
 }

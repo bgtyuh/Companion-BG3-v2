@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, Iterable, List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import schemas
@@ -128,8 +128,9 @@ def update_loot_item(item_id: int, payload: schemas.LootItemUpdate) -> schemas.L
 
 
 @app.delete("/api/loot/{item_id}", status_code=204)
-def delete_loot_item(item_id: int) -> None:
+def delete_loot_item(item_id: int) -> Response:
     execute("companion", "DELETE FROM items WHERE id = ?", (item_id,))
+    return Response(status_code=204)
 
 
 @app.get("/api/builds", response_model=List[schemas.Build])
@@ -268,9 +269,10 @@ def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
 
 
 @app.delete("/api/builds/{build_id}", status_code=204)
-def delete_build(build_id: int) -> None:
+def delete_build(build_id: int) -> Response:
     execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
     execute("companion", "DELETE FROM builds WHERE id = ?", (build_id,))
+    return Response(status_code=204)
 
 
 @app.get("/api/bestiary", response_model=List[schemas.Enemy])
@@ -334,8 +336,9 @@ def update_enemy(enemy_id: int, payload: schemas.EnemyUpdate) -> schemas.Enemy:
 
 
 @app.delete("/api/bestiary/{enemy_id}", status_code=204)
-def delete_enemy(enemy_id: int) -> None:
+def delete_enemy(enemy_id: int) -> Response:
     execute("companion", "DELETE FROM enemies WHERE id = ?", (enemy_id,))
+    return Response(status_code=204)
 
 
 @app.get("/api/armours", response_model=List[schemas.Armour])

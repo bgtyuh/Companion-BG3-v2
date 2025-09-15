@@ -14,6 +14,14 @@ DATABASE_PATHS: Dict[str, Path] = {
     "spells": ROOT_DIR / "bg3_spells.db",
     "races": ROOT_DIR / "bg3_races.db",
     "classes": ROOT_DIR / "bg3_classes.db",
+    "rings": ROOT_DIR / "bg3_rings.db",
+    "amulets": ROOT_DIR / "bg3_amulets.db",
+    "cloaks": ROOT_DIR / "bg3_cloaks.db",
+    "clothing": ROOT_DIR / "bg3_clothing.db",
+    "footwears": ROOT_DIR / "bg3_footwears.db",
+    "handwears": ROOT_DIR / "bg3_handwears.db",
+    "headwears": ROOT_DIR / "bg3_headwears.db",
+    "shields": ROOT_DIR / "bg3_shields.db",
 }
 
 

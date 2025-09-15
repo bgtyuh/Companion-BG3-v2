@@ -30,6 +30,7 @@ Le front-end consomme les endpoints du back-end (`/api/*`) pour charger les donn
 ### 1. Back-end
 
 ```bash
+cd "Documents\Projets Perso\GitHub Sync\Companion-BG3-v2"
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r backend/requirements.txt
@@ -42,9 +43,10 @@ L'API écoute par défaut sur http://127.0.0.1:8000 et expose la documentation i
 ### 2. Front-end
 
 ```bash
-cd frontend
+cd "Documents\Projets Perso\GitHub Sync\Companion-BG3-v2\frontend"
 npm install
 npm run dev
+
 ```
 
 L'application est accessible sur http://localhost:5173. Par défaut, elle contacte l'API sur `http://localhost:8000`. Pour utiliser une

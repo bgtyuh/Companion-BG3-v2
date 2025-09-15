@@ -359,40 +359,6 @@ button:hover {
   gap: 1rem;
 }
 
-.build-card {
-  padding: 1rem 1.25rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(59, 73, 92, 0.25);
-}
-
-.build-card h3 {
-  margin-top: 0;
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.08em;
-}
-
-.build-card__meta {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.build-card__levels {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.build-card__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
-  font-size: 0.9rem;
-}
-
 .build-form {
   display: flex;
   flex-direction: column;

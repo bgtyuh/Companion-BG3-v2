@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { Build, BuildLevel } from '../types'
 import { Panel } from './Panel'
 
@@ -20,7 +20,7 @@ const emptyLevel: BuildLevel = {
 }
 
 export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
-  const [selectedId, setSelectedId] = useState<number | null>(builds[0]?.id ?? null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState<Omit<Build, 'id'>>({
     name: '',
@@ -30,22 +30,10 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
     notes: '',
     levels: [{ ...emptyLevel }],
   })
-
-  const selectedBuild = useMemo(() => builds.find((build) => build.id === selectedId) ?? null, [builds, selectedId])
-
-  useEffect(() => {
-    if (!builds.length) {
-      setSelectedId(null)
-      return
-    }
-    if (!selectedId || !builds.some((build) => build.id === selectedId)) {
-      setSelectedId(builds[0].id)
-    }
-  }, [builds, selectedId])
-
   function resetForm() {
     setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [{ ...emptyLevel }] })
     setIsEditing(false)
+    setSelectedId(null)
   }
 
   async function handleSubmit() {
@@ -116,16 +104,8 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
         <div className="build-library__list">
           <ul>
             {builds.map((build) => (
-              <li key={build.id} className={build.id === selectedId ? 'active' : ''}>
-                <button
-                  className="link"
-                  onClick={() => {
-                    setSelectedId(build.id)
-                    setIsEditing(false)
-                  }}
-                >
-                  {build.name}
-                </button>
+              <li key={build.id} className={isEditing && build.id === selectedId ? 'active' : ''}>
+                <span>{build.name}</span>
                 <div className="build-library__actions">
                   <button className="link" onClick={() => handleEdit(build)}>
                     Modifier
@@ -140,39 +120,6 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
           </ul>
         </div>
         <div className="build-library__details">
-          {selectedBuild && !isEditing ? (
-            <div className="build-card">
-              <h3>{selectedBuild.name}</h3>
-              <div className="build-card__meta">
-                {selectedBuild.race ? <span>{selectedBuild.race}</span> : null}
-                {selectedBuild.class_name ? <span>{selectedBuild.class_name}</span> : null}
-                {selectedBuild.subclass ? <span>{selectedBuild.subclass}</span> : null}
-              </div>
-              {selectedBuild.notes ? <p className="build-card__notes">{selectedBuild.notes}</p> : null}
-              <div className="build-card__levels">
-                {selectedBuild.levels.map((level) => (
-                  <article key={level.id ?? level.level}>
-                    <header>Niveau {level.level}</header>
-                    <div className="build-card__grid">
-                      <div>
-                        <h4>Sorts</h4>
-                        <p>{level.spells || '—'}</p>
-                      </div>
-                      <div>
-                        <h4>Dons</h4>
-                        <p>{level.feats || '—'}</p>
-                      </div>
-                      <div>
-                        <h4>Spécialisations</h4>
-                        <p>{level.subclass_choice || level.multiclass_choice || '—'}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <form
             className="build-form"
             onSubmit={(event) => {

@@ -31,9 +31,10 @@ Le front-end consomme les endpoints du back-end (`/api/*`) pour charger les donn
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # sous Windows : .venv\Scripts\activate
+.venv\Scripts\activate
 pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload
+
 ```
 
 L'API écoute par défaut sur http://127.0.0.1:8000 et expose la documentation interactive sur `/docs`.

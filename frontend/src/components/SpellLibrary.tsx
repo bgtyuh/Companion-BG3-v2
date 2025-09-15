@@ -21,7 +21,7 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
   }, [spells, search, level])
 
   return (
-    <Panel title="Grimoire" subtitle="Consultez rapidement vos options arcaniques">
+    <Panel title="Grimoire" subtitle="Consultez rapidement vos options arcaniques" collapsible>
       <div className="filters">
         <input
           type="search"

@@ -27,7 +27,7 @@ export function ArmouryPanel({ armours }: ArmouryPanelProps) {
   )
 
   return (
-    <Panel title="Armurerie" subtitle="Comparez rapidement les armures disponibles">
+    <Panel title="Armurerie" subtitle="Comparez rapidement les armures disponibles" collapsible>
       <div className="filters">
         <input
           type="search"

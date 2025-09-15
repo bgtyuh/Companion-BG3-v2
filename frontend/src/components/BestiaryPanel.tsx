@@ -95,6 +95,7 @@ export function BestiaryPanel({ enemies, onCreate, onUpdate, onDelete }: Bestiar
     <Panel
       title="Bestiaire"
       subtitle="Préparez-vous face aux menaces majeures"
+      collapsible
       actions={
         <input
           type="search"

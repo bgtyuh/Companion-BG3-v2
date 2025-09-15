@@ -1,0 +1,602 @@
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Dict, Iterable, List
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from . import schemas
+from .database import execute, fetch_all, fetch_one
+
+app = FastAPI(title="Baldur's Gate 3 Companion API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _boolify(row: Dict, *fields: str) -> Dict:
+    for field in fields:
+        if field in row:
+            row[field] = bool(row[field])
+    return row
+
+
+def _load_build(build_id: int) -> schemas.Build:
+    build_row = fetch_one(
+        "companion",
+        "SELECT id, name, race, class, subclass, notes FROM builds WHERE id = ?",
+        (build_id,),
+    )
+    if build_row is None:
+        raise HTTPException(status_code=404, detail="Build not found")
+    level_rows = fetch_all(
+        "companion",
+        "SELECT id, level, spells, feats, subclass_choice, multiclass_choice FROM build_levels WHERE build_id = ? ORDER BY level",
+        (build_id,),
+    )
+    levels = [
+        schemas.BuildLevel(
+            id=row["id"],
+            level=row["level"],
+            spells=row.get("spells") or "",
+            feats=row.get("feats") or "",
+            subclass_choice=row.get("subclass_choice") or "",
+            multiclass_choice=row.get("multiclass_choice") or "",
+        )
+        for row in level_rows
+    ]
+    return schemas.Build(
+        id=build_row["id"],
+        name=build_row["name"],
+        race=build_row.get("race"),
+        class_name=build_row.get("class"),
+        subclass=build_row.get("subclass"),
+        notes=build_row.get("notes"),
+        levels=levels,
+    )
+
+
+@app.get("/api/loot", response_model=List[schemas.LootItem])
+def list_loot_items() -> List[schemas.LootItem]:
+    rows = fetch_all(
+        "companion",
+        "SELECT id, name, type, region, description, is_collected FROM items ORDER BY name COLLATE NOCASE",
+    )
+    return [schemas.LootItem(**_boolify(row, "is_collected")) for row in rows]
+
+
+@app.post("/api/loot", response_model=schemas.LootItem, status_code=201)
+def create_loot_item(payload: schemas.LootItemCreate) -> schemas.LootItem:
+    new_id = execute(
+        "companion",
+        """
+        INSERT INTO items (name, type, region, description, is_collected)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            payload.name,
+            payload.type,
+            payload.region,
+            payload.description,
+            int(payload.is_collected),
+        ),
+        fetch_lastrowid=True,
+    )
+    assert new_id is not None
+    row = fetch_one(
+        "companion",
+        "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
+        (new_id,),
+    )
+    return schemas.LootItem(**_boolify(row, "is_collected"))  # type: ignore[arg-type]
+
+
+@app.put("/api/loot/{item_id}", response_model=schemas.LootItem)
+def update_loot_item(item_id: int, payload: schemas.LootItemUpdate) -> schemas.LootItem:
+    existing = fetch_one(
+        "companion",
+        "SELECT id FROM items WHERE id = ?",
+        (item_id,),
+    )
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Loot item not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "is_collected" in updates and updates["is_collected"] is not None:
+        updates["is_collected"] = int(updates["is_collected"])
+    if updates:
+        fields = ", ".join(f"{field} = ?" for field in updates)
+        values = list(updates.values())
+        values.append(item_id)
+        execute(
+            "companion",
+            f"UPDATE items SET {fields} WHERE id = ?",
+            values,
+        )
+    row = fetch_one(
+        "companion",
+        "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
+        (item_id,),
+    )
+    return schemas.LootItem(**_boolify(row, "is_collected"))  # type: ignore[arg-type]
+
+
+@app.delete("/api/loot/{item_id}", status_code=204)
+def delete_loot_item(item_id: int) -> None:
+    execute("companion", "DELETE FROM items WHERE id = ?", (item_id,))
+
+
+@app.get("/api/builds", response_model=List[schemas.Build])
+def list_builds() -> List[schemas.Build]:
+    build_rows = fetch_all(
+        "companion",
+        "SELECT id, name, race, class, subclass, notes FROM builds ORDER BY name COLLATE NOCASE",
+    )
+    if not build_rows:
+        return []
+
+    build_ids = [row["id"] for row in build_rows]
+    placeholders = ",".join("?" for _ in build_ids)
+    level_rows = fetch_all(
+        "companion",
+        f"""
+        SELECT build_id, id, level, spells, feats, subclass_choice, multiclass_choice
+        FROM build_levels
+        WHERE build_id IN ({placeholders})
+        ORDER BY level
+        """,
+        build_ids,
+    )
+    grouped_levels: Dict[int, List[schemas.BuildLevel]] = defaultdict(list)
+    for row in level_rows:
+        grouped_levels[row["build_id"]].append(
+            schemas.BuildLevel(
+                id=row["id"],
+                level=row["level"],
+                spells=row.get("spells") or "",
+                feats=row.get("feats") or "",
+                subclass_choice=row.get("subclass_choice") or "",
+                multiclass_choice=row.get("multiclass_choice") or "",
+            )
+        )
+
+    builds: List[schemas.Build] = []
+    for row in build_rows:
+        builds.append(
+            schemas.Build(
+                id=row["id"],
+                name=row["name"],
+                race=row.get("race"),
+                class_name=row.get("class"),
+                subclass=row.get("subclass"),
+                notes=row.get("notes"),
+                levels=grouped_levels.get(row["id"], []),
+            )
+        )
+    return builds
+
+
+@app.get("/api/builds/{build_id}", response_model=schemas.Build)
+def get_build(build_id: int) -> schemas.Build:
+    return _load_build(build_id)
+
+
+@app.post("/api/builds", response_model=schemas.Build, status_code=201)
+def create_build(payload: schemas.BuildCreate) -> schemas.Build:
+    new_id = execute(
+        "companion",
+        """
+        INSERT INTO builds (name, race, class, subclass, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            payload.name,
+            payload.race,
+            payload.class_name,
+            payload.subclass,
+            payload.notes,
+        ),
+        fetch_lastrowid=True,
+    )
+    assert new_id is not None
+
+    for level in payload.levels:
+        execute(
+            "companion",
+            """
+            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_id,
+                level.level,
+                level.spells or "",
+                level.feats or "",
+                level.subclass_choice or "",
+                level.multiclass_choice or "",
+            ),
+        )
+    return _load_build(new_id)
+
+
+@app.put("/api/builds/{build_id}", response_model=schemas.Build)
+def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
+    existing = fetch_one(
+        "companion",
+        "SELECT id FROM builds WHERE id = ?",
+        (build_id,),
+    )
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Build not found")
+
+    execute(
+        "companion",
+        "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ? WHERE id = ?",
+        (
+            payload.name,
+            payload.race,
+            payload.class_name,
+            payload.subclass,
+            payload.notes,
+            build_id,
+        ),
+    )
+    execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
+    for level in payload.levels:
+        execute(
+            "companion",
+            """
+            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                build_id,
+                level.level,
+                level.spells or "",
+                level.feats or "",
+                level.subclass_choice or "",
+                level.multiclass_choice or "",
+            ),
+        )
+    return _load_build(build_id)
+
+
+@app.delete("/api/builds/{build_id}", status_code=204)
+def delete_build(build_id: int) -> None:
+    execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
+    execute("companion", "DELETE FROM builds WHERE id = ?", (build_id,))
+
+
+@app.get("/api/bestiary", response_model=List[schemas.Enemy])
+def list_enemies() -> List[schemas.Enemy]:
+    rows = fetch_all(
+        "companion",
+        "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies ORDER BY name COLLATE NOCASE",
+    )
+    return [schemas.Enemy(**row) for row in rows]
+
+
+@app.post("/api/bestiary", response_model=schemas.Enemy, status_code=201)
+def create_enemy(payload: schemas.EnemyCreate) -> schemas.Enemy:
+    new_id = execute(
+        "companion",
+        """
+        INSERT INTO enemies (name, stats, resistances, weaknesses, abilities, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.name,
+            payload.stats,
+            payload.resistances,
+            payload.weaknesses,
+            payload.abilities,
+            payload.notes,
+        ),
+        fetch_lastrowid=True,
+    )
+    assert new_id is not None
+    row = fetch_one(
+        "companion",
+        "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
+        (new_id,),
+    )
+    return schemas.Enemy(**row)  # type: ignore[arg-type]
+
+
+@app.put("/api/bestiary/{enemy_id}", response_model=schemas.Enemy)
+def update_enemy(enemy_id: int, payload: schemas.EnemyUpdate) -> schemas.Enemy:
+    existing = fetch_one(
+        "companion",
+        "SELECT id FROM enemies WHERE id = ?",
+        (enemy_id,),
+    )
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Enemy not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if updates:
+        fields = ", ".join(f"{field} = ?" for field in updates)
+        values = list(updates.values())
+        values.append(enemy_id)
+        execute("companion", f"UPDATE enemies SET {fields} WHERE id = ?", values)
+    row = fetch_one(
+        "companion",
+        "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
+        (enemy_id,),
+    )
+    return schemas.Enemy(**row)  # type: ignore[arg-type]
+
+
+@app.delete("/api/bestiary/{enemy_id}", status_code=204)
+def delete_enemy(enemy_id: int) -> None:
+    execute("companion", "DELETE FROM enemies WHERE id = ?", (enemy_id,))
+
+
+@app.get("/api/armours", response_model=List[schemas.Armour])
+def list_armours() -> List[schemas.Armour]:
+    items = fetch_all("armours", "SELECT * FROM Items")
+    locations = fetch_all("armours", "SELECT item_id, description FROM Locations")
+    specials = fetch_all("armours", "SELECT item_id, type, name, effect FROM Specials")
+
+    location_map: Dict[str, List[schemas.ArmourLocation]] = defaultdict(list)
+    for row in locations:
+        location_map[row["item_id"]].append(schemas.ArmourLocation(description=row["description"]))
+
+    special_map: Dict[str, List[schemas.ArmourSpecial]] = defaultdict(list)
+    for row in specials:
+        special_map[row["item_id"]].append(
+            schemas.ArmourSpecial(
+                type=row.get("type") or "",
+                name=row.get("name") or "",
+                effect=row.get("effect") or "",
+            )
+        )
+
+    result: List[schemas.Armour] = []
+    for item in items:
+        result.append(
+            schemas.Armour(
+                item_id=item["item_id"],
+                name=item.get("name"),
+                description=item.get("description"),
+                quote=item.get("quote"),
+                type=item.get("type"),
+                rarity=item.get("rarity"),
+                weight_kg=item.get("weight_kg"),
+                weight_lb=item.get("weight_lb"),
+                price_gp=item.get("price_gp"),
+                armour_class_base=item.get("armour_class_base"),
+                armour_class_modifier=item.get("armour_class_modifier"),
+                locations=location_map.get(item["item_id"], []),
+                specials=special_map.get(item["item_id"], []),
+            )
+        )
+    return result
+
+
+@app.get("/api/weapons", response_model=List[schemas.Weapon])
+def list_weapons() -> List[schemas.Weapon]:
+    weapons = fetch_all("weapons", "SELECT * FROM Weapons")
+    damages = fetch_all("weapons", "SELECT weapon_id, damage_dice, damage_bonus, damage_total_range, modifier, damage_type, damage_source FROM Damage")
+    actions = fetch_all("weapons", "SELECT weapon_id, name, description FROM Weapon_Actions")
+    abilities = fetch_all("weapons", "SELECT weapon_id, name, description FROM Special_Abilities")
+    locations = fetch_all("weapons", "SELECT weapon_id, location_description FROM Weapon_Locations")
+    notes = fetch_all("weapons", "SELECT weapon_id, note_content FROM Notes")
+
+    damage_map: Dict[str, List[schemas.WeaponDamage]] = defaultdict(list)
+    for row in damages:
+        damage_map[row["weapon_id"]].append(
+            schemas.WeaponDamage(
+                damage_dice=row.get("damage_dice"),
+                damage_bonus=row.get("damage_bonus"),
+                damage_total_range=row.get("damage_total_range"),
+                modifier=row.get("modifier"),
+                damage_type=row.get("damage_type"),
+                damage_source=row.get("damage_source"),
+            )
+        )
+
+    action_map: Dict[str, List[schemas.WeaponAction]] = defaultdict(list)
+    for row in actions:
+        action_map[row["weapon_id"]].append(
+            schemas.WeaponAction(name=row.get("name") or "", description=row.get("description"))
+        )
+
+    ability_map: Dict[str, List[schemas.WeaponAbility]] = defaultdict(list)
+    for row in abilities:
+        ability_map[row["weapon_id"]].append(
+            schemas.WeaponAbility(name=row.get("name") or "", description=row.get("description"))
+        )
+
+    location_map: Dict[str, List[schemas.WeaponLocation]] = defaultdict(list)
+    for row in locations:
+        location_map[row["weapon_id"]].append(
+            schemas.WeaponLocation(description=row.get("location_description") or "")
+        )
+
+    note_map: Dict[str, List[schemas.WeaponNote]] = defaultdict(list)
+    for row in notes:
+        note_map[row["weapon_id"]].append(
+            schemas.WeaponNote(content=row.get("note_content") or "")
+        )
+
+    result: List[schemas.Weapon] = []
+    for weapon in weapons:
+        result.append(
+            schemas.Weapon(
+                weapon_id=weapon["weapon_id"],
+                name=weapon.get("name"),
+                rarity=weapon.get("rarity"),
+                description=weapon.get("description"),
+                quote=weapon.get("quote"),
+                weight_kg=weapon.get("weight_kg"),
+                weight_lb=weapon.get("weight_lb"),
+                price=weapon.get("price"),
+                enchantment=weapon.get("enchantment"),
+                type=weapon.get("type"),
+                range_m=weapon.get("range_m"),
+                range_f=weapon.get("range_f"),
+                attributes=weapon.get("attributes"),
+                damages=damage_map.get(weapon["weapon_id"], []),
+                actions=action_map.get(weapon["weapon_id"], []),
+                abilities=ability_map.get(weapon["weapon_id"], []),
+                locations=location_map.get(weapon["weapon_id"], []),
+                notes=note_map.get(weapon["weapon_id"], []),
+            )
+        )
+    return result
+
+
+@app.get("/api/spells", response_model=List[schemas.Spell])
+def list_spells() -> List[schemas.Spell]:
+    spells = fetch_all("spells", "SELECT name, level, description FROM Spells")
+    properties = fetch_all("spells", "SELECT spell_name, property_name, property_value FROM Spell_Properties")
+
+    prop_map: Dict[str, List[schemas.SpellProperty]] = defaultdict(list)
+    for row in properties:
+        prop_map[row["spell_name"]].append(
+            schemas.SpellProperty(name=row.get("property_name") or "", value=row.get("property_value") or "")
+        )
+
+    return [
+        schemas.Spell(
+            name=row["name"],
+            level=row.get("level"),
+            description=row.get("description"),
+            properties=prop_map.get(row["name"], []),
+        )
+        for row in spells
+    ]
+
+
+@app.get("/api/races", response_model=List[schemas.Race])
+def list_races() -> List[schemas.Race]:
+    races = fetch_all("races", "SELECT name, description, base_speed, size FROM races")
+    subraces = fetch_all("races", "SELECT race_name, name, description FROM subraces")
+    racial_features = fetch_all("races", "SELECT race_name, name, description FROM racial_features")
+    subrace_features = fetch_all("races", "SELECT subrace_name, name, description FROM subrace_features")
+
+    race_feature_map: Dict[str, List[schemas.RaceFeature]] = defaultdict(list)
+    for row in racial_features:
+        race_feature_map[row["race_name"]].append(
+            schemas.RaceFeature(name=row.get("name") or "", description=row.get("description"))
+        )
+
+    subrace_map: Dict[str, List[schemas.Subrace]] = defaultdict(list)
+    subrace_feature_map: Dict[str, List[schemas.SubraceFeature]] = defaultdict(list)
+    for row in subrace_features:
+        subrace_feature_map[row["subrace_name"]].append(
+            schemas.SubraceFeature(name=row.get("name") or "", description=row.get("description"))
+        )
+
+    for row in subraces:
+        key = row["name"]
+        subrace_map[row["race_name"]].append(
+            schemas.Subrace(
+                name=row.get("name") or "",
+                description=row.get("description"),
+                features=subrace_feature_map.get(key, []),
+            )
+        )
+
+    return [
+        schemas.Race(
+            name=row["name"],
+            description=row.get("description"),
+            base_speed=row.get("base_speed"),
+            size=row.get("size"),
+            features=race_feature_map.get(row["name"], []),
+            subraces=subrace_map.get(row["name"], []),
+        )
+        for row in races
+    ]
+
+
+@app.get("/api/classes", response_model=List[schemas.CharacterClass])
+def list_classes() -> List[schemas.CharacterClass]:
+    classes = fetch_all("classes", "SELECT * FROM Classes")
+    subclasses = fetch_all("classes", "SELECT class_name, name, description FROM Subclasses")
+    subclass_features = fetch_all(
+        "classes",
+        "SELECT subclass_name, level, feature_name, feature_description FROM Subclasses_Features",
+    )
+    progressions = fetch_all("classes", "SELECT * FROM Class_Progression")
+
+    subclass_feature_map: Dict[str, List[schemas.SubclassFeature]] = defaultdict(list)
+    for row in subclass_features:
+        subclass_feature_map[row["subclass_name"]].append(
+            schemas.SubclassFeature(
+                level=row.get("level"),
+                feature_name=row.get("feature_name") or "",
+                feature_description=row.get("feature_description"),
+            )
+        )
+
+    subclass_map: Dict[str, List[schemas.Subclass]] = defaultdict(list)
+    for row in subclasses:
+        subclass_map[row["class_name"]].append(
+            schemas.Subclass(
+                name=row.get("name") or "",
+                description=row.get("description"),
+                features=subclass_feature_map.get(row.get("name"), []),
+            )
+        )
+
+    progression_map: Dict[str, List[schemas.ClassProgressionEntry]] = defaultdict(list)
+    for row in progressions:
+        progression_map[row["class_name"]].append(
+            schemas.ClassProgressionEntry(
+                level=row.get("level"),
+                proficiency_bonus=row.get("proficiency_bonus"),
+                features=row.get("features"),
+                rage_charges=row.get("rage_charges"),
+                rage_damage=row.get("rage_damage"),
+                cantrips_known=row.get("cantrips_known"),
+                spells_known=row.get("spells_known"),
+                spell_slots_1st=row.get("spell_slots_1st"),
+                spell_slots_2nd=row.get("spell_slots_2nd"),
+                spell_slots_3rd=row.get("spell_slots_3rd"),
+                spell_slots_4th=row.get("spell_slots_4th"),
+                spell_slots_5th=row.get("spell_slots_5th"),
+                spell_slots_6th=row.get("spell_slots_6th"),
+                sorcery_points=row.get("sorcery_points"),
+                sneak_attack_damage=row.get("sneak_attack_damage"),
+                bardic_inspiration_charges=row.get("bardic_inspiration_charges"),
+                channel_divinity_charges=row.get("channel_divinity_charges"),
+                lay_on_hands_charges=row.get("lay_on_hands_charges"),
+                ki_points=row.get("ki_points"),
+                unarmoured_movement_bonus=row.get("unarmoured_movement_bonus"),
+                martial_arts_damage=row.get("martial_arts_damage"),
+                spell_slots_per_level=row.get("spell_slots_per_level"),
+                invocations_known=row.get("invocations_known"),
+            )
+        )
+
+    result: List[schemas.CharacterClass] = []
+    for row in classes:
+        result.append(
+            schemas.CharacterClass(
+                name=row.get("name"),
+                description=row.get("description"),
+                hit_points_at_level1=row.get("hit_points_at_level1"),
+                hit_points_on_level_up=row.get("hit_points_on_level_up"),
+                key_abilities=row.get("key_abilities"),
+                saving_throw_proficiencies=row.get("saving_throw_proficiencies"),
+                equipment_proficiencies=row.get("equipment_proficiencies"),
+                skill_proficiencies=row.get("skill_proficiencies"),
+                spellcasting_ability=row.get("spellcasting_ability"),
+                starting_equipment=row.get("starting_equipment"),
+                subclasses=subclass_map.get(row.get("name"), []),
+                progression=sorted(
+                    progression_map.get(row.get("name"), []),
+                    key=lambda entry: entry.level,
+                ),
+            )
+        )
+    return result

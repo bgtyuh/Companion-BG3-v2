@@ -1,4 +1,5 @@
 import type { AbilityScoreKey, Build, CharacterClass, PartyMember, Race, Spell } from '../types'
+import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { Panel } from './Panel'
 
 interface CharacterSheetProps {
@@ -33,6 +34,7 @@ export function CharacterSheet({ member, build, raceInfo, classInfo, spells }: C
   }
 
   const knownSpells = spells.filter((spell) => member.spells.includes(spell.name))
+  const equipment = member.equipment ?? {}
   const nextLevel = Math.min(12, member.level + 1)
   const nextStep = build?.levels.find((level) => level.level === nextLevel)
 
@@ -144,19 +146,22 @@ export function CharacterSheet({ member, build, raceInfo, classInfo, spells }: C
       </section>
 
       <section className="character-sheet__equipment">
-        <div>
-          <h4>Armure</h4>
-          <p>{member.equippedArmour || 'Aucune armure assignée'}</p>
-        </div>
-        <div>
-          <h4>Armes</h4>
-          <ul className="tag-list">
-            {member.equippedWeapons.length ? (
-              member.equippedWeapons.map((weapon) => <li key={weapon}>{weapon}</li>)
-            ) : (
-              <li className="empty">—</li>
-            )}
-          </ul>
+        <h4>Équipement</h4>
+        <div className="equipment-layout equipment-layout--sheet">
+          <div className="equipment-layout__character" aria-hidden="true">
+            <span>{member.name}</span>
+          </div>
+          {equipmentSlotOrder.map((slot) => {
+            const value = equipment[slot]
+            return (
+              <div key={slot} className={`equipment-slot equipment-slot--${slot} equipment-slot--read-only`}>
+                <span className="equipment-slot__label">{equipmentSlotLabels[slot]}</span>
+                <span className={value ? 'equipment-slot__value' : 'equipment-slot__value equipment-slot__value--empty'}>
+                  {value ?? '—'}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </section>
 

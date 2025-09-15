@@ -5,11 +5,15 @@ import type {
   AbilityScoreKey,
   Build,
   CharacterClass,
+  EquipmentSlotKey,
+  PartyEquipment,
   PartyMember,
   Race,
   Spell,
 } from '../types'
+import { equipmentSlotKeys } from '../types'
 import { downloadJSON, readJSONFile } from '../utils/file'
+import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { CharacterSheet } from './CharacterSheet'
 import { Panel } from './Panel'
 
@@ -20,6 +24,14 @@ interface PartyPlannerProps {
   spells: Spell[]
   weaponOptions: string[]
   armourOptions: string[]
+  shieldOptions: string[]
+  headwearOptions: string[]
+  handwearOptions: string[]
+  footwearOptions: string[]
+  cloakOptions: string[]
+  amuletOptions: string[]
+  ringOptions: string[]
+  clothingOptions: string[]
 }
 
 const abilityKeys: AbilityScoreKey[] = [
@@ -71,6 +83,14 @@ function isValidAbilityScores(value: unknown): value is Record<AbilityScoreKey, 
   })
 }
 
+function isPartyEquipment(
+  value: unknown,
+): value is Partial<Record<EquipmentSlotKey, string>> {
+  if (value === undefined) return true
+  if (!isRecord(value)) return false
+  return equipmentSlotKeys.every((key) => value[key] === undefined || typeof value[key] === 'string')
+}
+
 function isValidPartyMember(value: unknown): value is PartyMember {
   if (!isRecord(value)) return false
 
@@ -83,7 +103,6 @@ function isValidPartyMember(value: unknown): value is PartyMember {
   if (!value.savingThrows.every((item) => isAbilityScoreKey(item))) return false
 
   if (!isStringArray(value.skills)) return false
-  if (!isStringArray(value.equippedWeapons)) return false
   if (!isStringArray(value.spells)) return false
 
   if (value.race !== undefined && typeof value.race !== 'string') return false
@@ -91,7 +110,7 @@ function isValidPartyMember(value: unknown): value is PartyMember {
   if (value.class_name !== undefined && typeof value.class_name !== 'string') return false
   if (value.subclass !== undefined && typeof value.subclass !== 'string') return false
   if (value.background !== undefined && typeof value.background !== 'string') return false
-  if (value.equippedArmour !== undefined && typeof value.equippedArmour !== 'string') return false
+  if (!isPartyEquipment(value.equipment)) return false
   if (value.notes !== undefined && typeof value.notes !== 'string') return false
 
   if (value.buildId !== undefined && typeof value.buildId !== 'number') return false
@@ -99,17 +118,73 @@ function isValidPartyMember(value: unknown): value is PartyMember {
   return true
 }
 
-function sanitizeMember(member: PartyMember): PartyMember {
+type PartyMemberInput = Omit<PartyMember, 'equipment'> & {
+  equipment?: unknown
+  equippedArmour?: unknown
+  equippedWeapons?: unknown
+}
+
+function sanitizeMember(member: PartyMemberInput): PartyMember {
+  const trimmedName = member.name.trim()
+  const sanitizedEquipment: PartyEquipment = {}
+  const providedEquipment = isPartyEquipment(member.equipment) ? member.equipment ?? {} : {}
+
+  for (const key of equipmentSlotKeys) {
+    const value = providedEquipment[key]
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed) {
+        sanitizedEquipment[key] = trimmed
+      }
+    }
+  }
+
+  if (typeof member.equippedArmour === 'string') {
+    const trimmed = member.equippedArmour.trim()
+    if (trimmed && sanitizedEquipment.armour === undefined) {
+      sanitizedEquipment.armour = trimmed
+    }
+  }
+
+  if (isStringArray(member.equippedWeapons)) {
+    const [mainHand, offHand, ranged] = member.equippedWeapons
+
+    const mapLegacyWeapon = (value: string | undefined) => {
+      if (!value) return undefined
+      const trimmed = value.trim()
+      return trimmed || undefined
+    }
+
+    const mainHandValue = mapLegacyWeapon(mainHand)
+    if (mainHandValue && sanitizedEquipment.mainHand === undefined) {
+      sanitizedEquipment.mainHand = mainHandValue
+    }
+
+    const offHandValue = mapLegacyWeapon(offHand)
+    if (offHandValue && sanitizedEquipment.offHand === undefined) {
+      sanitizedEquipment.offHand = offHandValue
+    }
+
+    const rangedValue = mapLegacyWeapon(ranged)
+    if (rangedValue && sanitizedEquipment.ranged === undefined) {
+      sanitizedEquipment.ranged = rangedValue
+    }
+  }
+
+  const equipment: PartyEquipment = Object.keys(sanitizedEquipment).length ? sanitizedEquipment : {}
+
   return {
     id: member.id,
-    name: member.name,
-    race: member.race ?? undefined,
-    subrace: member.subrace ?? undefined,
-    class_name: member.class_name ?? undefined,
-    subclass: member.subclass ?? undefined,
-    background: member.background ?? undefined,
+    name: trimmedName,
+    race: typeof member.race === 'string' && member.race.trim() ? member.race.trim() : undefined,
+    subrace: typeof member.subrace === 'string' && member.subrace.trim() ? member.subrace.trim() : undefined,
+    class_name:
+      typeof member.class_name === 'string' && member.class_name.trim() ? member.class_name.trim() : undefined,
+    subclass: typeof member.subclass === 'string' && member.subclass.trim() ? member.subclass.trim() : undefined,
+    background:
+      typeof member.background === 'string' && member.background.trim() ? member.background.trim() : undefined,
     level: member.level,
-    buildId: member.buildId ?? undefined,
+    buildId: typeof member.buildId === 'number' ? member.buildId : undefined,
     abilityScores: abilityKeys.reduce<PartyMember['abilityScores']>((scores, key) => {
       scores[key] = member.abilityScores[key]
       return scores
@@ -118,10 +193,9 @@ function sanitizeMember(member: PartyMember): PartyMember {
       abilityKeys.includes(savingThrow),
     ),
     skills: [...member.skills],
-    equippedWeapons: [...member.equippedWeapons],
-    equippedArmour: member.equippedArmour ?? undefined,
+    equipment,
     spells: [...member.spells],
-    notes: member.notes ?? undefined,
+    notes: typeof member.notes === 'string' && member.notes.trim() ? member.notes.trim() : undefined,
   }
 }
 
@@ -129,7 +203,7 @@ function parseImportedMembers(data: unknown): PartyMember[] | null {
   if (!Array.isArray(data)) return null
   if (!data.every((item) => isValidPartyMember(item))) return null
 
-  return data.map((member) => sanitizeMember(member))
+  return data.map((member) => sanitizeMember(member as PartyMemberInput))
 }
 
 function createEmptyMember(): PartyMember {
@@ -143,7 +217,7 @@ function createEmptyMember(): PartyMember {
     }, {} as PartyMember['abilityScores']),
     savingThrows: [],
     skills: [],
-    equippedWeapons: [],
+    equipment: {},
     spells: [],
     notes: '',
   }
@@ -153,12 +227,30 @@ function toggleValue<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
 }
 
-export function PartyPlanner({ builds, races, classes, spells, weaponOptions, armourOptions }: PartyPlannerProps) {
-  const [members, setMembers] = useLocalStorage<PartyMember[]>('bg3-companion-party', [])
+export function PartyPlanner({
+  builds,
+  races,
+  classes,
+  spells,
+  weaponOptions,
+  armourOptions,
+  shieldOptions,
+  headwearOptions,
+  handwearOptions,
+  footwearOptions,
+  cloakOptions,
+  amuletOptions,
+  ringOptions,
+  clothingOptions,
+}: PartyPlannerProps) {
+  const [storedMembers, setMembers] = useLocalStorage<PartyMember[]>('bg3-companion-party', [])
+  const members = useMemo(
+    () => storedMembers.map((member) => sanitizeMember(member as PartyMemberInput)),
+    [storedMembers],
+  )
   const [selectedId, setSelectedId] = useState<string | null>(members[0]?.id ?? null)
   const [editingMember, setEditingMember] = useState<PartyMember | null>(null)
   const [spellQuery, setSpellQuery] = useState('')
-  const [weaponInput, setWeaponInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedMember = useMemo(
@@ -187,6 +279,40 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
     return spells.filter((spell) => spell.name.toLowerCase().includes(lower)).slice(0, 8)
   }, [spells, spellQuery])
 
+  const offHandOptions = useMemo(() => {
+    const collator = new Intl.Collator('fr')
+    return Array.from(new Set([...weaponOptions, ...shieldOptions])).sort((a, b) => collator.compare(a, b))
+  }, [shieldOptions, weaponOptions])
+
+  const equipmentOptions = useMemo<Record<EquipmentSlotKey, string[]>>(
+    () => ({
+      headwear: headwearOptions,
+      amulet: amuletOptions,
+      cloak: cloakOptions,
+      armour: armourOptions,
+      handwear: handwearOptions,
+      footwear: footwearOptions,
+      ring1: ringOptions,
+      ring2: ringOptions,
+      clothing: clothingOptions,
+      mainHand: weaponOptions,
+      offHand: offHandOptions,
+      ranged: weaponOptions,
+    }),
+    [
+      amuletOptions,
+      armourOptions,
+      cloakOptions,
+      clothingOptions,
+      footwearOptions,
+      handwearOptions,
+      headwearOptions,
+      offHandOptions,
+      ringOptions,
+      weaponOptions,
+    ],
+  )
+
   useEffect(() => {
     if (!members.length) {
       setSelectedId(null)
@@ -202,29 +328,36 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
     setEditingMember(member)
     setSelectedId(member.id)
     setSpellQuery('')
-    setWeaponInput('')
   }
 
   function startEdit(member: PartyMember) {
-    setEditingMember({ ...member, abilityScores: { ...member.abilityScores }, spells: [...member.spells], skills: [...member.skills], savingThrows: [...member.savingThrows], equippedWeapons: [...member.equippedWeapons] })
+    const editableMember = sanitizeMember(member as PartyMemberInput)
+    setEditingMember({
+      ...editableMember,
+      abilityScores: { ...editableMember.abilityScores },
+      spells: [...editableMember.spells],
+      skills: [...editableMember.skills],
+      savingThrows: [...editableMember.savingThrows],
+      equipment: { ...(editableMember.equipment ?? {}) },
+    })
     setSelectedId(member.id)
     setSpellQuery('')
-    setWeaponInput('')
   }
 
   function cancelEdit() {
     setEditingMember(null)
     setSpellQuery('')
-    setWeaponInput('')
   }
 
   function saveMember(member: PartyMember) {
+    const sanitized = sanitizeMember(member as PartyMemberInput)
+
     setMembers((current) => {
-      const exists = current.some((item) => item.id === member.id)
+      const exists = current.some((item) => item.id === sanitized.id)
       if (exists) {
-        return current.map((item) => (item.id === member.id ? member : item))
+        return current.map((item) => (item.id === sanitized.id ? sanitized : item))
       }
-      return [...current, member]
+      return [...current, sanitized]
     })
     setEditingMember(null)
   }
@@ -236,20 +369,18 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
     }
   }
 
-  function addWeaponToForm() {
-    if (!editingMember || !weaponInput.trim()) return
-    const value = weaponInput.trim()
-    if (!editingMember.equippedWeapons.includes(value)) {
-      setEditingMember({ ...editingMember, equippedWeapons: [...editingMember.equippedWeapons, value] })
-    }
-    setWeaponInput('')
-  }
-
-  function removeWeaponFromForm(value: string) {
+  function handleEquipmentChange(slot: EquipmentSlotKey, value: string) {
     if (!editingMember) return
+    const next: PartyEquipment = { ...(editingMember.equipment ?? {}) }
+    const trimmed = value.trim()
+    if (trimmed) {
+      next[slot] = trimmed
+    } else {
+      delete next[slot]
+    }
     setEditingMember({
       ...editingMember,
-      equippedWeapons: editingMember.equippedWeapons.filter((weapon) => weapon !== value),
+      equipment: next,
     })
   }
 
@@ -287,7 +418,6 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
       setSelectedId(parsedMembers[0]?.id ?? null)
       setEditingMember(null)
       setSpellQuery('')
-      setWeaponInput('')
     } catch (error) {
       console.error('Failed to import party members', error)
       window.alert("Impossible d'importer les membres. Vérifiez le fichier.")
@@ -306,12 +436,7 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
     if (!editingMember.name.trim()) {
       return
     }
-    saveMember({
-      ...editingMember,
-      name: editingMember.name.trim(),
-      background: editingMember.background?.trim(),
-      equippedArmour: editingMember.equippedArmour?.trim(),
-    })
+    saveMember(editingMember)
   }
 
   return (
@@ -527,25 +652,6 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
                   </div>
 
                   <div>
-                    <h4>Jets de sauvegarde</h4>
-                    <div className="toggle-grid">
-                      {abilityKeys.map((key) => (
-                        <label key={key}>
-                          <input
-                            type="checkbox"
-                            checked={editingMember.savingThrows.includes(key)}
-                            onChange={() =>
-                              setEditingMember({
-                                ...editingMember,
-                                savingThrows: toggleValue(editingMember.savingThrows, key),
-                              })
-                            }
-                          />
-                          {key}
-                        </label>
-                      ))}
-                    </div>
-
                     <h4>Compétences</h4>
                     <div className="toggle-grid">
                       {skillOptions.map((skill) => (
@@ -567,53 +673,31 @@ export function PartyPlanner({ builds, races, classes, spells, weaponOptions, ar
                   </div>
                 </div>
 
-                <div className="form__row">
-                  <label>
-                    Armure équipée
-                    <input
-                      list="armour-options"
-                      value={editingMember.equippedArmour ?? ''}
-                      onChange={(event) =>
-                        setEditingMember({ ...editingMember, equippedArmour: event.target.value || undefined })
-                      }
-                      placeholder="Sélectionnez ou saisissez"
-                    />
-                    <datalist id="armour-options">
-                      {armourOptions.map((name) => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
-                  </label>
-                  <label className="weapon-input">
-                    Armes équipées
-                    <div className="weapon-input__row">
-                      <input
-                        list="weapon-options"
-                        value={weaponInput}
-                        onChange={(event) => setWeaponInput(event.target.value)}
-                        placeholder="Épée, arc, etc."
-                      />
-                      <button type="button" className="link" onClick={addWeaponToForm}>
-                        Ajouter
-                      </button>
+                <section className="equipment-editor">
+                  <h4>Équipement</h4>
+                  <div className="equipment-layout equipment-layout--editor">
+                    <div className="equipment-layout__character" aria-hidden="true">
+                      <span>Portrait</span>
+                      <span>en préparation</span>
                     </div>
-                    <datalist id="weapon-options">
-                      {weaponOptions.map((name) => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
-                    <ul className="tag-list">
-                      {editingMember.equippedWeapons.map((weapon) => (
-                        <li key={weapon}>
-                          {weapon}
-                          <button type="button" onClick={() => removeWeaponFromForm(weapon)}>
-                            ×
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </label>
-                </div>
+                    {equipmentSlotOrder.map((slot) => (
+                      <label key={slot} className={`equipment-slot equipment-slot--${slot}`}>
+                        <span className="equipment-slot__label">{equipmentSlotLabels[slot]}</span>
+                        <select
+                          value={editingMember.equipment?.[slot] ?? ''}
+                          onChange={(event) => handleEquipmentChange(slot, event.target.value)}
+                        >
+                          <option value="">—</option>
+                          {equipmentOptions[slot].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                </section>
 
                 <div className="spell-selector">
                   <div className="spell-selector__header">

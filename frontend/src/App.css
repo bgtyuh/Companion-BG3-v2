@@ -479,12 +479,6 @@ button:hover {
   text-transform: uppercase;
 }
 
-.weapon-input__row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -520,6 +514,195 @@ button:hover {
   border-radius: 12px;
   background: rgba(248, 244, 232, 0.9);
   border: 1px solid rgba(59, 73, 92, 0.2);
+}
+
+.equipment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.equipment-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(5, auto);
+  grid-template-areas:
+    '. head head amulet .'
+    'cloak . character . ring1'
+    'armour . character . ring2'
+    'handwear mainHand character offHand footwear'
+    '. clothing ranged ranged .';
+  gap: 0.75rem;
+  align-items: center;
+  justify-items: center;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(59, 73, 92, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.equipment-layout--sheet {
+  background: rgba(248, 244, 232, 0.85);
+}
+
+.equipment-layout__character {
+  grid-area: character;
+  width: 160px;
+  height: 220px;
+  border-radius: 16px;
+  border: 2px dashed rgba(59, 73, 92, 0.3);
+  background: radial-gradient(circle at 35% 20%, rgba(201, 178, 148, 0.35), rgba(248, 244, 232, 0.7));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.85rem;
+  color: rgba(59, 73, 92, 0.85);
+  font-family: 'Cinzel', serif;
+  gap: 0.35rem;
+}
+
+.equipment-layout__character span:first-child {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.equipment-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 170px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 73, 92, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.equipment-slot--read-only {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.equipment-slot__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(59, 73, 92, 0.68);
+}
+
+.equipment-slot select {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 73, 92, 0.28);
+  padding: 0.4rem 0.55rem;
+  background: rgba(248, 244, 232, 0.95);
+  color: rgba(44, 62, 80, 0.92);
+  font-size: 0.9rem;
+}
+
+.equipment-slot select:focus-visible {
+  outline: none;
+  border-color: rgba(140, 103, 70, 0.85);
+  box-shadow: 0 0 0 2px rgba(140, 103, 70, 0.35);
+}
+
+.equipment-slot__value {
+  font-weight: 600;
+  color: rgba(44, 62, 80, 0.9);
+}
+
+.equipment-slot__value--empty {
+  color: rgba(44, 62, 80, 0.55);
+  font-style: italic;
+}
+
+.equipment-slot--headwear {
+  grid-area: head;
+}
+
+.equipment-slot--amulet {
+  grid-area: amulet;
+}
+
+.equipment-slot--cloak {
+  grid-area: cloak;
+}
+
+.equipment-slot--armour {
+  grid-area: armour;
+}
+
+.equipment-slot--handwear {
+  grid-area: handwear;
+}
+
+.equipment-slot--footwear {
+  grid-area: footwear;
+}
+
+.equipment-slot--ring1 {
+  grid-area: ring1;
+}
+
+.equipment-slot--ring2 {
+  grid-area: ring2;
+}
+
+.equipment-slot--clothing {
+  grid-area: clothing;
+}
+
+.equipment-slot--mainHand {
+  grid-area: mainHand;
+}
+
+.equipment-slot--offHand {
+  grid-area: offHand;
+}
+
+.equipment-slot--ranged {
+  grid-area: ranged;
+}
+
+@media (max-width: 900px) {
+  .equipment-layout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'head head amulet'
+      'cloak character ring1'
+      'armour character ring2'
+      'handwear character offHand'
+      'footwear mainHand ranged'
+      'clothing clothing ranged';
+  }
+}
+
+@media (max-width: 640px) {
+  .equipment-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      'head character'
+      'amulet character'
+      'cloak mainHand'
+      'armour offHand'
+      'handwear ranged'
+      'footwear ranged'
+      'ring1 clothing'
+      'ring2 clothing';
+  }
+
+  .equipment-slot {
+    max-width: none;
+  }
+
+  .equipment-layout__character {
+    width: 140px;
+    height: 190px;
+  }
 }
 
 .spell-selector__header {
@@ -654,9 +837,9 @@ button:hover {
 }
 
 .character-sheet__equipment {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .character-sheet__spellbook {

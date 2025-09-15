@@ -172,25 +172,33 @@ function App() {
     queryClient.setQueryData<Enemy[]>(['enemies'], (items = []) => items.filter((entry) => entry.id !== id))
   }
 
-  const lootItems = lootQuery.data ?? []
-  const builds = buildsQuery.data ?? []
-  const enemies = enemiesQuery.data ?? []
-  const armours = armoursQuery.data ?? []
-  const rings = ringsQuery.data ?? []
-  const amulets = amuletsQuery.data ?? []
-  const cloaks = cloaksQuery.data ?? []
-  const clothing = clothingQuery.data ?? []
-  const footwears = footwearsQuery.data ?? []
-  const handwears = handwearsQuery.data ?? []
-  const headwears = headwearsQuery.data ?? []
-  const shields = shieldsQuery.data ?? []
-  const weapons = weaponsQuery.data ?? []
-  const spells = spellsQuery.data ?? []
-  const races = racesQuery.data ?? []
-  const classes = classesQuery.data ?? []
+  const lootItems = useMemo(() => lootQuery.data ?? [], [lootQuery.data])
+  const builds = useMemo(() => buildsQuery.data ?? [], [buildsQuery.data])
+  const enemies = useMemo(() => enemiesQuery.data ?? [], [enemiesQuery.data])
+  const armours = useMemo(() => armoursQuery.data ?? [], [armoursQuery.data])
+  const rings = useMemo(() => ringsQuery.data ?? [], [ringsQuery.data])
+  const amulets = useMemo(() => amuletsQuery.data ?? [], [amuletsQuery.data])
+  const cloaks = useMemo(() => cloaksQuery.data ?? [], [cloaksQuery.data])
+  const clothing = useMemo(() => clothingQuery.data ?? [], [clothingQuery.data])
+  const footwears = useMemo(() => footwearsQuery.data ?? [], [footwearsQuery.data])
+  const handwears = useMemo(() => handwearsQuery.data ?? [], [handwearsQuery.data])
+  const headwears = useMemo(() => headwearsQuery.data ?? [], [headwearsQuery.data])
+  const shields = useMemo(() => shieldsQuery.data ?? [], [shieldsQuery.data])
+  const weapons = useMemo(() => weaponsQuery.data ?? [], [weaponsQuery.data])
+  const spells = useMemo(() => spellsQuery.data ?? [], [spellsQuery.data])
+  const races = useMemo(() => racesQuery.data ?? [], [racesQuery.data])
+  const classes = useMemo(() => classesQuery.data ?? [], [classesQuery.data])
 
   const weaponNames = useMemo(() => weapons.map((weapon) => weapon.name), [weapons])
   const armourNames = useMemo(() => armours.map((armour) => armour.name), [armours])
+  const shieldNames = useMemo(() => shields.map((shield) => shield.name), [shields])
+  const headwearNames = useMemo(() => headwears.map((item) => item.name), [headwears])
+  const handwearNames = useMemo(() => handwears.map((item) => item.name), [handwears])
+  const footwearNames = useMemo(() => footwears.map((item) => item.name), [footwears])
+  const cloakNames = useMemo(() => cloaks.map((item) => item.name), [cloaks])
+  const amuletNames = useMemo(() => amulets.map((item) => item.name), [amulets])
+  const ringNames = useMemo(() => rings.map((item) => item.name), [rings])
+  const clothingNames = useMemo(() => clothing.map((item) => item.name), [clothing])
 
   return (
     <div className="app">
@@ -227,6 +235,14 @@ function App() {
               spells={spells}
               weaponOptions={weaponNames}
               armourOptions={armourNames}
+              shieldOptions={shieldNames}
+              headwearOptions={headwearNames}
+              handwearOptions={handwearNames}
+              footwearOptions={footwearNames}
+              cloakOptions={cloakNames}
+              amuletOptions={amuletNames}
+              ringOptions={ringNames}
+              clothingOptions={clothingNames}
             />
           </div>
 

@@ -10,6 +10,10 @@
   backdrop-filter: blur(2px);
 }
 
+.panel--collapsed {
+  gap: 0.75rem;
+}
+
 .panel__header {
   display: flex;
   align-items: center;
@@ -41,10 +45,44 @@
   gap: 0.5rem;
 }
 
+.panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  background: rgba(48, 62, 80, 0.12);
+  color: #2c3e50;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panel__toggle:hover,
+.panel__toggle:focus-visible {
+  background: rgba(48, 62, 80, 0.22);
+}
+
+.panel__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.35);
+}
+
+.panel__toggle-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .panel__body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
   font-size: 0.95rem;
   color: rgba(30, 34, 40, 0.9);
+}
+
+.panel--collapsed .panel__body {
+  display: none;
 }

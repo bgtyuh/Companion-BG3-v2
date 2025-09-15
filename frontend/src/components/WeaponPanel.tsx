@@ -27,7 +27,7 @@ export function WeaponPanel({ weapons }: WeaponPanelProps) {
   )
 
   return (
-    <Panel title="Arsenal" subtitle="Révisez les armes clés pour vos stratégies">
+    <Panel title="Arsenal" subtitle="Révisez les armes clés pour vos stratégies" collapsible>
       <div className="filters">
         <input
           type="search"

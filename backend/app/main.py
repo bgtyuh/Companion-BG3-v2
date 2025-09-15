@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import sqlite3
 from collections import defaultdict
 from typing import Dict, Iterable, List
 
@@ -286,38 +288,53 @@ def list_enemies() -> List[schemas.Enemy]:
 
 @app.post("/api/bestiary", response_model=schemas.Enemy, status_code=201)
 def create_enemy(payload: schemas.EnemyCreate) -> schemas.Enemy:
-    new_id = execute(
-        "companion",
-        """
-        INSERT INTO enemies (name, stats, resistances, weaknesses, abilities, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            payload.name,
-            payload.stats,
-            payload.resistances,
-            payload.weaknesses,
-            payload.abilities,
-            payload.notes,
-        ),
-        fetch_lastrowid=True,
-    )
-    assert new_id is not None
-    row = fetch_one(
-        "companion",
-        "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
-        (new_id,),
-    )
-    return schemas.Enemy(**row)  # type: ignore[arg-type]
+    try:
+        new_id = execute(
+            "companion",
+            """
+            INSERT INTO enemies (name, stats, resistances, weaknesses, abilities, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.name,
+                payload.stats,
+                payload.resistances,
+                payload.weaknesses,
+                payload.abilities,
+                payload.notes,
+            ),
+            fetch_lastrowid=True,
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to create enemy")
+        raise HTTPException(status_code=500, detail="Failed to create enemy") from exc
+    if new_id is None:
+        raise HTTPException(status_code=500, detail="Failed to create enemy")
+    try:
+        row = fetch_one(
+            "companion",
+            "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
+            (new_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to fetch created enemy with id %s", new_id)
+        raise HTTPException(status_code=500, detail="Failed to create enemy") from exc
+    if row is None:
+        raise HTTPException(status_code=500, detail="Failed to create enemy")
+    return schemas.Enemy(**row)
 
 
 @app.put("/api/bestiary/{enemy_id}", response_model=schemas.Enemy)
 def update_enemy(enemy_id: int, payload: schemas.EnemyUpdate) -> schemas.Enemy:
-    existing = fetch_one(
-        "companion",
-        "SELECT id FROM enemies WHERE id = ?",
-        (enemy_id,),
-    )
+    try:
+        existing = fetch_one(
+            "companion",
+            "SELECT id FROM enemies WHERE id = ?",
+            (enemy_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load enemy %s for update", enemy_id)
+        raise HTTPException(status_code=500, detail="Failed to update enemy") from exc
     if existing is None:
         raise HTTPException(status_code=404, detail="Enemy not found")
 
@@ -326,18 +343,32 @@ def update_enemy(enemy_id: int, payload: schemas.EnemyUpdate) -> schemas.Enemy:
         fields = ", ".join(f"{field} = ?" for field in updates)
         values = list(updates.values())
         values.append(enemy_id)
-        execute("companion", f"UPDATE enemies SET {fields} WHERE id = ?", values)
-    row = fetch_one(
-        "companion",
-        "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
-        (enemy_id,),
-    )
-    return schemas.Enemy(**row)  # type: ignore[arg-type]
+        try:
+            execute("companion", f"UPDATE enemies SET {fields} WHERE id = ?", values)
+        except sqlite3.Error as exc:
+            logging.exception("Failed to update enemy %s", enemy_id)
+            raise HTTPException(status_code=500, detail="Failed to update enemy") from exc
+    try:
+        row = fetch_one(
+            "companion",
+            "SELECT id, name, stats, resistances, weaknesses, abilities, notes FROM enemies WHERE id = ?",
+            (enemy_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load enemy %s after update", enemy_id)
+        raise HTTPException(status_code=500, detail="Failed to update enemy") from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="Enemy not found")
+    return schemas.Enemy(**row)
 
 
 @app.delete("/api/bestiary/{enemy_id}", status_code=204)
 def delete_enemy(enemy_id: int) -> Response:
-    execute("companion", "DELETE FROM enemies WHERE id = ?", (enemy_id,))
+    try:
+        execute("companion", "DELETE FROM enemies WHERE id = ?", (enemy_id,))
+    except sqlite3.Error as exc:
+        logging.exception("Failed to delete enemy %s", enemy_id)
+        raise HTTPException(status_code=500, detail="Failed to delete enemy") from exc
     return Response(status_code=204)
 
 

@@ -735,9 +735,10 @@ button:focus-visible {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
 }
 
 .ability-grid li {
@@ -749,6 +750,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 0.3rem;
   align-items: center;
+  flex: 1 0 140px;
 }
 
 .ability-grid__label {

@@ -469,7 +469,7 @@ export function PartyPlanner({
               {members.map((member) => (
                 <li key={member.id} className={member.id === selectedId ? 'active' : ''}>
                   <button className="link" onClick={() => setSelectedId(member.id)}>
-                    <span className="party-planner__name">{member.name || 'Compagnon sans nom'}</span>
+                    <span className="party-planner__name">{member.name || 'Compagnon sans nom'}</span>{' '}
                     <span className="party-planner__meta">
                       {member.class_name ? `${member.class_name} · ` : ''}Niv. {member.level}
                     </span>

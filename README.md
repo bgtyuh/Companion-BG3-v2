@@ -21,6 +21,12 @@ VITE_API_BASE_URL="http://localhost:8000"
 
 Adaptez l'URL si l'API est exposée sur une autre machine ou un autre port.
 
+Si la variable n'est pas définie, le front tente automatiquement de contacter l'API
+sur le même hôte en supposant le port `8000` lorsque l'application est lancée avec
+`npm run dev` ou `npm run preview`. Cette valeur par défaut facilite le
+démarrage local, mais pensez à définir `VITE_API_BASE_URL` si votre API tourne
+sur un autre port ou une autre machine.
+
 ## Scripts npm utiles
 
 Depuis `frontend/` :

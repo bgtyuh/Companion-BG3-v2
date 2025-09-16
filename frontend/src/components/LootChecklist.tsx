@@ -97,8 +97,19 @@ export function LootChecklist({ items, onCreate, onToggle, onDelete }: LootCheck
       }
     >
       <div className="progress">
-        <div className="progress__bar" style={{ width: `${progress}%` }} />
-        <span className="progress__label">{progress}% collecté</span>
+        <div
+          className="progress__track"
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Progression des objets collectés"
+        >
+          <div className="progress__bar" style={{ width: `${progress}%` }} />
+        </div>
+        <span className="progress__label" aria-live="polite">
+          {progress}% collecté
+        </span>
       </div>
       <form className="form" onSubmit={handleSubmit}>
         <div className="form__row">

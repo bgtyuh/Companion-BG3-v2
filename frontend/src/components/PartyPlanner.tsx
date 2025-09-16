@@ -5,6 +5,7 @@ import type {
   AbilityScoreKey,
   Build,
   CharacterClass,
+  EquipmentCollections,
   EquipmentSlotKey,
   PartyEquipment,
   PartyMember,
@@ -22,16 +23,7 @@ interface PartyPlannerProps {
   races: Race[]
   classes: CharacterClass[]
   spells: Spell[]
-  weaponOptions: string[]
-  armourOptions: string[]
-  shieldOptions: string[]
-  headwearOptions: string[]
-  handwearOptions: string[]
-  footwearOptions: string[]
-  cloakOptions: string[]
-  amuletOptions: string[]
-  ringOptions: string[]
-  clothingOptions: string[]
+  equipment: EquipmentCollections
 }
 
 const abilityKeys: AbilityScoreKey[] = [
@@ -232,17 +224,31 @@ export function PartyPlanner({
   races,
   classes,
   spells,
-  weaponOptions,
-  armourOptions,
-  shieldOptions,
-  headwearOptions,
-  handwearOptions,
-  footwearOptions,
-  cloakOptions,
-  amuletOptions,
-  ringOptions,
-  clothingOptions,
+  equipment,
 }: PartyPlannerProps) {
+  const {
+    armours,
+    weapons,
+    shields,
+    clothing,
+    headwears,
+    handwears,
+    footwears,
+    cloaks,
+    rings,
+    amulets,
+  } = equipment
+
+  const weaponOptions = useMemo(() => weapons.map((item) => item.name), [weapons])
+  const armourOptions = useMemo(() => armours.map((item) => item.name), [armours])
+  const shieldOptions = useMemo(() => shields.map((item) => item.name), [shields])
+  const headwearOptions = useMemo(() => headwears.map((item) => item.name), [headwears])
+  const handwearOptions = useMemo(() => handwears.map((item) => item.name), [handwears])
+  const footwearOptions = useMemo(() => footwears.map((item) => item.name), [footwears])
+  const cloakOptions = useMemo(() => cloaks.map((item) => item.name), [cloaks])
+  const amuletOptions = useMemo(() => amulets.map((item) => item.name), [amulets])
+  const ringOptions = useMemo(() => rings.map((item) => item.name), [rings])
+  const clothingOptions = useMemo(() => clothing.map((item) => item.name), [clothing])
   const [storedMembers, setMembers] = useLocalStorage<PartyMember[]>('bg3-companion-party', [])
   const members = useMemo(
     () => storedMembers.map((member) => sanitizeMember(member as PartyMemberInput)),
@@ -762,6 +768,7 @@ export function PartyPlanner({
         raceInfo={selectedRaceInfo}
         classInfo={selectedClassInfo}
         spells={spells}
+        equipmentData={equipment}
       />
     </div>
   )

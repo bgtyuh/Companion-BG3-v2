@@ -7,6 +7,74 @@ function normalizeName(value: string) {
     .replace(/(^-|-$)/g, '')
 }
 
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+const suffixTokens = ['icon', 'spell', 'melee', 'ranged', 'faded', 'badge']
+
+const plusWordMap: Record<string, string> = {
+  one: '+1',
+  two: '+2',
+  three: '+3',
+  four: '+4',
+  five: '+5',
+  six: '+6',
+  seven: '+7',
+  eight: '+8',
+  nine: '+9',
+  ten: '+10',
+}
+
+function generateNameVariants(fileName: string) {
+  const variants = new Set<string>()
+  const queue = [fileName]
+
+  while (queue.length) {
+    const current = queue.pop()
+    if (!current) continue
+    if (variants.has(current)) continue
+
+    variants.add(current)
+
+    const decoded = safeDecode(current)
+    if (decoded !== current) queue.push(decoded)
+
+    const withoutPrefix = current.replace(/^\d+(?:px)?[-_]?/i, '')
+    if (withoutPrefix !== current) queue.push(withoutPrefix)
+
+    const withoutWebp = current.replace(/\.webp$/i, '')
+    if (withoutWebp !== current) queue.push(withoutWebp)
+
+    for (const token of suffixTokens) {
+      const pattern = new RegExp(`(?:^|[-_])${token}(?:[-_]?[0-9]+)?$`, 'i')
+      if (pattern.test(current)) {
+        const trimmed: string = current.replace(pattern, '').replace(/[-_]+$/, '')
+        if (trimmed && trimmed !== current) queue.push(trimmed)
+      }
+    }
+
+    const plusConverted = current.replace(
+      /Plus(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)/gi,
+      (_, word: string) => ` ${plusWordMap[word.toLowerCase()] ?? ''}`.trimEnd(),
+    )
+    if (plusConverted !== current) queue.push(plusConverted)
+
+    const prefixNumberMatch = current.match(/^(?:\+)?(\d+)[-_](.+)$/)
+    if (prefixNumberMatch) {
+      const [, number, rest] = prefixNumberMatch
+      const reordered = `${rest} +${number}`
+      if (reordered !== current) queue.push(reordered)
+    }
+  }
+
+  return variants
+}
+
 function createIconMap(glob: Record<string, unknown>) {
   const map = new Map<string, string>()
   for (const [filePath, url] of Object.entries(glob)) {
@@ -14,9 +82,13 @@ function createIconMap(glob: Record<string, unknown>) {
     const segments = filePath.split('/')
     const fileWithExtension = segments[segments.length - 1] ?? filePath
     const fileName = fileWithExtension.replace(/\.[^/.]+$/, '')
-    const key = normalizeName(fileName)
-    if (!map.has(key)) {
-      map.set(key, url)
+    const variants = generateNameVariants(fileName)
+    for (const variant of variants) {
+      const key = normalizeName(variant)
+      if (!key) continue
+      if (!map.has(key)) {
+        map.set(key, url)
+      }
     }
   }
   return map

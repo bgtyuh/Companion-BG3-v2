@@ -1,79 +1,72 @@
 # Companion-BG3-v2
 
-Companion-BG3 est un outil de suivi et de planification pour Baldur's Gate 3. Il combine un back-end FastAPI qui expose les bases de
-connaissances du jeu (armures, armes, sorts, races, classes…) et une application React qui met en scène ces données dans une
-interface inspirée des fiches de gestion de personnages.
+Companion-BG3 est une application compagnon pour Baldur's Gate 3. Elle associe un back-end FastAPI qui expose des bases de
+connaissances du jeu (équipements, sorts, classes, races…) et une interface React/Vite destinée au suivi de votre groupe.
+Vous pouvez y préparer vos builds, tracer l'évolution de chaque personnage et planifier le butin important à récupérer.
 
-## Fonctionnalités principales
+## Structure du dépôt
 
-- **Gestion du butin prioritaire** : créez et cochez les objets essentiels à récupérer pendant l'aventure.
-- **Planificateur de builds** : concevez vos progressions niveau par niveau (sorts, dons, choix de sous-classes, multiclasses…).
-- **Gestion d'équipe** : enregistrez les membres du groupe, attribuez-leur un build, des équipements, des compétences et un grimoire.
-- **Fiche de personnage détaillée** : consultez en un coup d'œil les statistiques, jets de sauvegarde, équipements et sorts, ainsi que
-  la prochaine étape suggérée par le build choisi.
-- **Armurerie et arsenal** : parcourez l'ensemble des armures et armes disponibles pour préparer votre theorycraft.
-- **Grimoire** : filtrez les sorts par nom ou par niveau pour constituer rapidement vos listes.
-- **Bestiaire personnalisable** : consignez vos ennemis dangereux avec leurs résistances, faiblesses et notes tactiques.
+- `backend/` – API FastAPI adossée à des fichiers SQLite.
+- `frontend/` – Application React + TypeScript bâtie avec Vite.
+- `data/` – Bases SQLite distribuées avec le projet.
 
-## Architecture
+## Configuration de l'API côté front
 
-```
-backend/         API FastAPI + SQLite (fichiers *.db fournis)
-frontend/        Application React + TypeScript (Vite)
-data/            Bases SQLite utilisées par l'application
-```
-
-Le front-end consomme les endpoints du back-end (`/api/*`) pour charger les données et persiste les informations propres au joueur
-(liste de butin, builds, bestiaire, équipage) dans la base `bg3_companion.db`.
-
-## Lancer le projet
-
-### 1. Back-end
+Le front consomme l'API via une variable d'environnement `VITE_API_BASE_URL`. Créez un fichier `frontend/.env` (ou
+`frontend/.env.local`) contenant par exemple :
 
 ```bash
-cd "Documents\Projets Perso\GitHub Sync\Companion-BG3-v2"
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r backend/requirements.txt
-uvicorn backend.app.main:app --reload
-
+VITE_API_BASE_URL="http://localhost:8000"
 ```
 
-L'API écoute par défaut sur http://127.0.0.1:8000 et expose la documentation interactive sur `/docs`.
+Adaptez l'URL si l'API est exposée sur une autre machine ou un autre port.
 
-### 2. Front-end
+## Scripts npm utiles
 
-```bash
-cd "Documents\Projets Perso\GitHub Sync\Companion-BG3-v2\frontend"
-npm install
-npm run dev
+Depuis `frontend/` :
 
-```
+| Commande | Description |
+| --- | --- |
+| `npm run dev` | Démarre le serveur de développement Vite (http://localhost:5173). |
+| `npm run build` | Compile TypeScript et génère le bundle de production dans `dist/`. |
+| `npm run preview` | Sert le bundle généré pour validation locale. |
+| `npm run lint` | Vérifie le code avec ESLint. |
+| `npm test` | Alias du lint pour l'intégration continue. |
 
-L'application est accessible sur http://localhost:5173. Par défaut, elle contacte l'API sur `http://localhost:8000`. Pour utiliser une
-adresse différente, créez un fichier `frontend/.env` avec la variable `VITE_API_BASE_URL`.
+## Instructions de développement
 
-## Jeux de données
+1. **Préparer l'API**
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Sous Windows : .venv\Scripts\activate
+   pip install -r requirements.txt
+   uvicorn backend.app.main:app --reload
+   ```
+   L'API écoute sur http://127.0.0.1:8000 et expose la documentation sur `/docs`.
 
-Les fichiers SQLite fournis dans `data/` contiennent :
+2. **Préparer le front**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   L'application est disponible sur http://localhost:5173. Assurez-vous que `VITE_API_BASE_URL` pointe bien vers l'API en cours
+d'exécution.
 
-- `bg3_armours.db`, `bg3_weapons.db`, `bg3_spells.db`, `bg3_races.db`, `bg3_classes.db` : données encyclopédiques.
-- `bg3_companion.db` : espace d'écriture utilisé par l'application (builds, bestiaire, checklist de butin, etc.).
+## Instructions de build
 
-Pour charger un autre répertoire que `data/`, définissez la variable d'environnement `BG3_DATA_DIR` avant de lancer l'API. Le chemin
-peut être absolu ou relatif à la racine du projet.
+- **Front-end**
+  ```bash
+  cd frontend
+  npm install
+  npm run build
+  ```
+  Les fichiers statiques sont générés dans `frontend/dist/`. Servez-les via un serveur HTTP ou l'API (`npm run preview` pour un
+  test rapide).
 
-## Vérifications
+- **Back-end**
+  Le back-end Python ne requiert pas de build spécifique : un simple déploiement FastAPI (uvicorn/gunicorn + `backend.app.main`) et
+  l'accès aux fichiers `data/*.db` suffisent.
 
-Des commandes simples permettent de valider les deux projets :
-
-```bash
-# Compilation Python
-python -m compileall backend
-
-# Build TypeScript/React
-cd frontend
-npm run build
-```
-
-Bon jeu !
+Bon développement !

@@ -41,6 +41,7 @@ htmlcov/
 
 # Node / frontend
 node_modules/
+frontend/node_modules/
 bower_components/
 npm-debug.log*
 yarn-debug.log*

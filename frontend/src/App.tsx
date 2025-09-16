@@ -180,16 +180,21 @@ function App() {
   const races = useMemo(() => racesQuery.data ?? [], [racesQuery.data])
   const classes = useMemo(() => classesQuery.data ?? [], [classesQuery.data])
 
-  const weaponNames = useMemo(() => weapons.map((weapon) => weapon.name), [weapons])
-  const armourNames = useMemo(() => armours.map((armour) => armour.name), [armours])
-  const shieldNames = useMemo(() => shields.map((shield) => shield.name), [shields])
-  const headwearNames = useMemo(() => headwears.map((item) => item.name), [headwears])
-  const handwearNames = useMemo(() => handwears.map((item) => item.name), [handwears])
-  const footwearNames = useMemo(() => footwears.map((item) => item.name), [footwears])
-  const cloakNames = useMemo(() => cloaks.map((item) => item.name), [cloaks])
-  const amuletNames = useMemo(() => amulets.map((item) => item.name), [amulets])
-  const ringNames = useMemo(() => rings.map((item) => item.name), [rings])
-  const clothingNames = useMemo(() => clothing.map((item) => item.name), [clothing])
+  const equipmentCollections = useMemo(
+    () => ({
+      armours,
+      weapons,
+      shields,
+      clothing,
+      headwears,
+      handwears,
+      footwears,
+      cloaks,
+      rings,
+      amulets,
+    }),
+    [armours, weapons, shields, clothing, headwears, handwears, footwears, cloaks, rings, amulets],
+  )
 
   return (
     <div className="app">
@@ -224,16 +229,7 @@ function App() {
               races={races}
               classes={classes}
               spells={spells}
-              weaponOptions={weaponNames}
-              armourOptions={armourNames}
-              shieldOptions={shieldNames}
-              headwearOptions={headwearNames}
-              handwearOptions={handwearNames}
-              footwearOptions={footwearNames}
-              cloakOptions={cloakNames}
-              amuletOptions={amuletNames}
-              ringOptions={ringNames}
-              clothingOptions={clothingNames}
+              equipment={equipmentCollections}
             />
           </div>
 

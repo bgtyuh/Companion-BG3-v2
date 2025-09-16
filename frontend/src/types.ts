@@ -267,6 +267,19 @@ export type EquipmentSlotKey = (typeof equipmentSlotKeys)[number]
 
 export type PartyEquipment = Partial<Record<EquipmentSlotKey, string>>
 
+export interface EquipmentCollections {
+  armours: ArmourItem[]
+  weapons: WeaponItem[]
+  shields: ShieldItem[]
+  clothing: ClothingItem[]
+  headwears: HeadwearItem[]
+  handwears: HandwearItem[]
+  footwears: FootwearItem[]
+  cloaks: CloakItem[]
+  rings: RingItem[]
+  amulets: AmuletItem[]
+}
+
 export interface PartyMember {
   id: string
   name: string

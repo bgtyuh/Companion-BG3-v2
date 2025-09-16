@@ -620,6 +620,27 @@ button:hover {
   font-style: italic;
 }
 
+.equipment-slot__card {
+  display: flex;
+  justify-content: center;
+}
+
+.equipment-slot__card .icon-grid__item {
+  width: 100%;
+  max-width: 150px;
+  padding: 0.65rem 0.55rem 0.85rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.equipment-slot__card .icon-grid__image {
+  width: 60px;
+  height: 60px;
+}
+
+.equipment-slot__card .icon-grid__label {
+  font-size: 0.82rem;
+}
+
 .equipment-slot--headwear {
   grid-area: head;
 }
@@ -849,26 +870,8 @@ button:hover {
   border: 1px solid rgba(59, 73, 92, 0.2);
 }
 
-.spell-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.spell-list article {
-  border: 1px solid rgba(59, 73, 92, 0.2);
-  border-radius: 10px;
-  padding: 0.6rem 0.75rem;
-  background: rgba(248, 244, 232, 0.9);
-}
-
-.spell-list__name {
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-.spell-list__level {
-  font-size: 0.85rem;
-  color: rgba(59, 73, 92, 0.75);
+.character-sheet__spell-grid {
+  margin-top: 0.75rem;
 }
 
 .character-sheet__notes-block {

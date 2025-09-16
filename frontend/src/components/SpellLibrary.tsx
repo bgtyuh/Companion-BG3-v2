@@ -12,6 +12,7 @@ interface SpellLibraryProps {
 export function SpellLibrary({ spells }: SpellLibraryProps) {
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState('')
+  const [school, setSchool] = useState('')
 
   const levelOptions = useMemo(() => {
     const labelMap = new Map<string, string>()
@@ -34,14 +35,28 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
       .map(([value, label]) => ({ value, label }))
   }, [spells])
 
+  const schoolOptions = useMemo(() => {
+    const values = new Set<string>()
+    spells.forEach((spell) => {
+      const value = spell.school?.trim()
+      if (value) {
+        values.add(value)
+      }
+    })
+    return Array.from(values)
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+      .map((value) => ({ value, label: value }))
+  }, [spells])
+
   const filtered = useMemo(() => {
     const lower = search.trim().toLowerCase()
     return spells
       .filter((spell) => (level ? getNormalizedSpellLevel(spell.level) === level : true))
+      .filter((spell) => (school ? spell.school?.trim() === school : true))
       .filter((spell) => (lower ? spell.name.toLowerCase().includes(lower) : true))
       .sort(sortSpellsByLevel)
       .slice(0, 30)
-  }, [spells, search, level])
+  }, [spells, search, level, school])
 
   return (
     <Panel title="Grimoire" subtitle="Consultez rapidement vos options arcaniques" collapsible>
@@ -60,6 +75,14 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
             </option>
           ))}
         </select>
+        <select value={school} onChange={(event) => setSchool(event.target.value)}>
+          <option value="">Toutes les écoles</option>
+          {schoolOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="icon-grid spell-library">
         {filtered.map((spell) => {
@@ -71,6 +94,11 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
                 {levelLabel ? (
                   <span>
                     <strong>{levelTitle}</strong> {levelLabel}
+                  </span>
+                ) : null}
+                {spell.school ? (
+                  <span>
+                    <strong>École :</strong> {spell.school}
                   </span>
                 ) : null}
               </div>

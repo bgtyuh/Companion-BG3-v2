@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Type, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,22 @@ from . import schemas
 from .database import execute, fetch_all, fetch_one
 
 EquipmentModel = TypeVar("EquipmentModel", bound=BaseModel)
+
+SPELL_SCHOOL_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("abjuration", "Abjuration"),
+    ("conjuration", "Conjuration"),
+    ("divination", "Divination"),
+    ("enchantment", "Enchantment"),
+    ("evocation", "Evocation"),
+    ("illusion", "Illusion"),
+    ("necromancy", "Necromancy"),
+    ("transmutation", "Transmutation"),
+)
+
+SPELL_SCHOOL_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE), canonical)
+    for keyword, canonical in SPELL_SCHOOL_KEYWORDS
+)
 
 app = FastAPI(title="Baldur's Gate 3 Companion API")
 
@@ -647,6 +664,15 @@ def list_weapons() -> List[schemas.Weapon]:
     return result
 
 
+def _infer_spell_school(description: Optional[str]) -> Optional[str]:
+    if not description:
+        return None
+    for pattern, canonical in SPELL_SCHOOL_PATTERNS:
+        if pattern.search(description):
+            return canonical
+    return None
+
+
 @app.get("/api/spells", response_model=List[schemas.Spell])
 def list_spells() -> List[schemas.Spell]:
     spells = fetch_all(
@@ -676,6 +702,7 @@ def list_spells() -> List[schemas.Spell]:
         schemas.Spell(
             name=row["name"],
             level=row.get("level"),
+            school=_infer_spell_school(row.get("description")),
             description=row.get("description"),
             properties=prop_map.get(row["name"], []),
         )

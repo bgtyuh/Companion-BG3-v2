@@ -1005,7 +1005,7 @@ button:hover {
   padding: 0.9rem;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
   opacity: 0;
-  pointer-events: auto;
+  pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 100;
   overflow-y: auto;
@@ -1036,6 +1036,7 @@ button:hover {
 .icon-grid__item:focus-visible .icon-grid__tooltip {
   opacity: 1;
   transform: translate(-50%, 0);
+  pointer-events: auto;
 }
 
 .icon-grid__tooltip-content {

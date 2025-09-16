@@ -53,7 +53,7 @@ function generateNameVariants(fileName: string) {
     for (const token of suffixTokens) {
       const pattern = new RegExp(`(?:^|[-_])${token}(?:[-_]?[0-9]+)?$`, 'i')
       if (pattern.test(current)) {
-        const trimmed = current.replace(pattern, '').replace(/[-_]+$/, '')
+        const trimmed: string = current.replace(pattern, '').replace(/[-_]+$/, '')
         if (trimmed && trimmed !== current) queue.push(trimmed)
       }
     }

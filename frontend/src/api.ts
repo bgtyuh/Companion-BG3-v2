@@ -52,7 +52,50 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return undefined
   }
 
-  return (await response.json()) as T
+  const responseClone = response.clone()
+  const contentType = response.headers.get('content-type') ?? ''
+  const normalizedContentType = contentType.toLowerCase()
+
+  if (!normalizedContentType.includes('application/json')) {
+    const rawBody = (await responseClone.text()).trim()
+    const snippet = rawBody.replace(/\s+/g, ' ').slice(0, 200)
+    const isLikelyHtml =
+      normalizedContentType.includes('text/html') || /^<!doctype html/i.test(rawBody) || /^<html/i.test(rawBody)
+
+    if (isLikelyHtml) {
+      throw new Error(
+        snippet
+          ? `Réponse inattendue du serveur : du HTML a été reçu. Vérifiez que VITE_API_BASE_URL pointe vers l'API et que le serveur backend est démarré. Aperçu : ${snippet}`
+          : `Réponse inattendue du serveur : du HTML a été reçu. Vérifiez que VITE_API_BASE_URL pointe vers l'API et que le serveur backend est démarré.`,
+      )
+    }
+
+    throw new Error(
+      rawBody
+        ? `Réponse inattendue du serveur (type ${contentType || 'inconnu'}). Vérifiez que l'API renvoie du JSON valide. Aperçu : ${snippet}`
+        : `Réponse inattendue du serveur (type ${contentType || 'inconnu'}). Vérifiez que l'API renvoie du JSON valide.`,
+    )
+  }
+
+  try {
+    return (await response.json()) as T
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      let snippet = ''
+      try {
+        const rawBody = (await responseClone.text()).trim()
+        snippet = rawBody.slice(0, 200)
+      } catch {
+        // ignore read errors when building the debug message
+      }
+      throw new Error(
+        snippet
+          ? `Impossible de décoder la réponse JSON du serveur. Vérifiez que l'API renvoie du JSON valide. Aperçu : ${snippet}`
+          : "Impossible de décoder la réponse JSON du serveur. Vérifiez que l'API renvoie du JSON valide.",
+      )
+    }
+    throw error
+  }
 }
 
 export const api = {

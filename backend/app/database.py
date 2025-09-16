@@ -1,28 +1,39 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
+
+_data_dir_env = os.getenv("BG3_DATA_DIR", "data")
+BG3_DATA_DIR = Path(_data_dir_env).expanduser()
+if not BG3_DATA_DIR.is_absolute():
+    BG3_DATA_DIR = ROOT_DIR / BG3_DATA_DIR
+
+DATA_DIR = BG3_DATA_DIR
+
+DATABASE_FILENAMES: Dict[str, str] = {
+    "companion": "bg3_companion.db",
+    "armours": "bg3_armours.db",
+    "weapons": "bg3_weapons.db",
+    "spells": "bg3_spells.db",
+    "races": "bg3_races.db",
+    "classes": "bg3_classes.db",
+    "rings": "bg3_rings.db",
+    "amulets": "bg3_amulets.db",
+    "cloaks": "bg3_cloaks.db",
+    "clothing": "bg3_clothing.db",
+    "footwears": "bg3_footwears.db",
+    "handwears": "bg3_handwears.db",
+    "headwears": "bg3_headwears.db",
+    "shields": "bg3_shields.db",
+}
 
 DATABASE_PATHS: Dict[str, Path] = {
-    "companion": DATA_DIR / "bg3_companion.db",
-    "armours": DATA_DIR / "bg3_armours.db",
-    "weapons": DATA_DIR / "bg3_weapons.db",
-    "spells": DATA_DIR / "bg3_spells.db",
-    "races": DATA_DIR / "bg3_races.db",
-    "classes": DATA_DIR / "bg3_classes.db",
-    "rings": DATA_DIR / "bg3_rings.db",
-    "amulets": DATA_DIR / "bg3_amulets.db",
-    "cloaks": DATA_DIR / "bg3_cloaks.db",
-    "clothing": DATA_DIR / "bg3_clothing.db",
-    "footwears": DATA_DIR / "bg3_footwears.db",
-    "handwears": DATA_DIR / "bg3_handwears.db",
-    "headwears": DATA_DIR / "bg3_headwears.db",
-    "shields": DATA_DIR / "bg3_shields.db",
+    key: DATA_DIR / filename for key, filename in DATABASE_FILENAMES.items()
 }
 
 

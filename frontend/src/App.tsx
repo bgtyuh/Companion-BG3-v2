@@ -285,6 +285,8 @@ function App() {
           <div className="app__column">
             <BuildLibrary
               builds={builds}
+              races={races}
+              classes={classes}
               onCreate={handleCreateBuild}
               onUpdate={handleUpdateBuild}
               onDelete={handleDeleteBuild}

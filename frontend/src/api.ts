@@ -18,16 +18,29 @@ import type {
   WeaponItem,
 } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const rawBaseUrl =
+  import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
+const API_BASE_URL = rawBaseUrl.replace(/\/$/, '')
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-    ...options,
-  })
+  let response: Response
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+      ...options,
+    })
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Impossible de contacter l'API. Vérifiez que le serveur est accessible et que VITE_API_BASE_URL est correctement configurée.",
+      )
+    }
+    throw error
+  }
 
   if (!response.ok) {
     const message = await response.text()

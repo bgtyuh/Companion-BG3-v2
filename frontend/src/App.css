@@ -93,6 +93,11 @@
 }
 
 .progress {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.progress__track {
   position: relative;
   background: rgba(222, 210, 184, 0.6);
   border-radius: 999px;
@@ -110,9 +115,10 @@
 }
 
 .progress__label {
-  margin-top: 0.35rem;
   font-size: 0.85rem;
   letter-spacing: 0.08em;
+  font-weight: 600;
+  color: rgba(44, 62, 80, 0.85);
 }
 
 .form {
@@ -992,17 +998,28 @@ button:hover {
   transform: translate(-50%, 6px);
   min-width: 220px;
   max-width: 320px;
-  max-height: 360px;
+  max-height: min(420px, 70vh);
   background: rgba(22, 24, 27, 0.95);
   color: #f7f1e3;
   border-radius: 10px;
   padding: 0.9rem;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
   opacity: 0;
-  pointer-events: none;
+  pointer-events: auto;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 100;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.icon-grid__tooltip::-webkit-scrollbar {
+  width: 6px;
+}
+
+.icon-grid__tooltip::-webkit-scrollbar-thumb {
+  background: rgba(244, 200, 135, 0.6);
+  border-radius: 999px;
 }
 
 .icon-grid__tooltip::before {

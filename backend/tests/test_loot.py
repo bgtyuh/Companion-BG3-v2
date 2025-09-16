@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -84,3 +86,71 @@ def test_delete_loot_item_removes_row(client: TestClient) -> None:
     remaining = list_response.json()
     ids = [item["id"] for item in remaining]
     assert ids == [2]
+
+
+def test_create_loot_item_returns_500_when_insert_fails(client: TestClient) -> None:
+    payload = {
+        "name": "Shadow Blade",
+        "type": "Weapon",
+        "region": "Underdark",
+        "description": "Forged from magical darkness.",
+        "is_collected": True,
+    }
+
+    with patch("backend.app.main.execute", side_effect=sqlite3.Error("boom")):
+        response = client.post("/api/loot", json=payload)
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to create loot item"}
+
+
+def test_create_loot_item_returns_500_when_fetch_fails(client: TestClient) -> None:
+    payload = {
+        "name": "Shadow Blade",
+        "type": "Weapon",
+        "region": "Underdark",
+        "description": "Forged from magical darkness.",
+        "is_collected": True,
+    }
+
+    with patch("backend.app.main.execute", return_value=1):
+        with patch("backend.app.main.fetch_one", side_effect=sqlite3.Error("boom")):
+            response = client.post("/api/loot", json=payload)
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to create loot item"}
+
+
+def test_update_loot_item_returns_500_when_initial_fetch_fails(client: TestClient) -> None:
+    with patch("backend.app.main.fetch_one", side_effect=sqlite3.Error("boom")):
+        response = client.put("/api/loot/1", json={"description": "Updated"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to update loot item"}
+
+
+def test_update_loot_item_returns_500_when_update_fails(client: TestClient) -> None:
+    with patch("backend.app.main.execute", side_effect=sqlite3.Error("boom")):
+        response = client.put("/api/loot/1", json={"description": "Updated"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to update loot item"}
+
+
+def test_update_loot_item_returns_500_when_final_fetch_fails(client: TestClient) -> None:
+    with patch(
+        "backend.app.main.fetch_one",
+        side_effect=[{"id": 1}, sqlite3.Error("boom")],
+    ):
+        response = client.put("/api/loot/1", json={"description": "Updated"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to update loot item"}
+
+
+def test_delete_loot_item_returns_500_when_delete_fails(client: TestClient) -> None:
+    with patch("backend.app.main.execute", side_effect=sqlite3.Error("boom")):
+        response = client.delete("/api/loot/1")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to delete loot item"}

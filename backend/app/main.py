@@ -78,37 +78,52 @@ def list_loot_items() -> List[schemas.LootItem]:
 
 @app.post("/api/loot", response_model=schemas.LootItem, status_code=201)
 def create_loot_item(payload: schemas.LootItemCreate) -> schemas.LootItem:
-    new_id = execute(
-        "companion",
-        """
-        INSERT INTO items (name, type, region, description, is_collected)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            payload.name,
-            payload.type,
-            payload.region,
-            payload.description,
-            int(payload.is_collected),
-        ),
-        fetch_lastrowid=True,
-    )
-    assert new_id is not None
-    row = fetch_one(
-        "companion",
-        "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
-        (new_id,),
-    )
-    return schemas.LootItem(**_boolify(row, "is_collected"))  # type: ignore[arg-type]
+    try:
+        new_id = execute(
+            "companion",
+            """
+            INSERT INTO items (name, type, region, description, is_collected)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                payload.name,
+                payload.type,
+                payload.region,
+                payload.description,
+                int(payload.is_collected),
+            ),
+            fetch_lastrowid=True,
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to create loot item")
+        raise HTTPException(status_code=500, detail="Failed to create loot item") from exc
+    if new_id is None:
+        raise HTTPException(status_code=500, detail="Failed to create loot item")
+    try:
+        row = fetch_one(
+            "companion",
+            "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
+            (new_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load loot item %s after creation", new_id)
+        raise HTTPException(status_code=500, detail="Failed to create loot item") from exc
+    if row is None:
+        raise HTTPException(status_code=500, detail="Failed to create loot item")
+    return schemas.LootItem(**_boolify(row, "is_collected"))
 
 
 @app.put("/api/loot/{item_id}", response_model=schemas.LootItem)
 def update_loot_item(item_id: int, payload: schemas.LootItemUpdate) -> schemas.LootItem:
-    existing = fetch_one(
-        "companion",
-        "SELECT id FROM items WHERE id = ?",
-        (item_id,),
-    )
+    try:
+        existing = fetch_one(
+            "companion",
+            "SELECT id FROM items WHERE id = ?",
+            (item_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load loot item %s for update", item_id)
+        raise HTTPException(status_code=500, detail="Failed to update loot item") from exc
     if existing is None:
         raise HTTPException(status_code=404, detail="Loot item not found")
 
@@ -119,22 +134,36 @@ def update_loot_item(item_id: int, payload: schemas.LootItemUpdate) -> schemas.L
         fields = ", ".join(f"{field} = ?" for field in updates)
         values = list(updates.values())
         values.append(item_id)
-        execute(
+        try:
+            execute(
+                "companion",
+                f"UPDATE items SET {fields} WHERE id = ?",
+                values,
+            )
+        except sqlite3.Error as exc:
+            logging.exception("Failed to update loot item %s", item_id)
+            raise HTTPException(status_code=500, detail="Failed to update loot item") from exc
+    try:
+        row = fetch_one(
             "companion",
-            f"UPDATE items SET {fields} WHERE id = ?",
-            values,
+            "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
+            (item_id,),
         )
-    row = fetch_one(
-        "companion",
-        "SELECT id, name, type, region, description, is_collected FROM items WHERE id = ?",
-        (item_id,),
-    )
-    return schemas.LootItem(**_boolify(row, "is_collected"))  # type: ignore[arg-type]
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load loot item %s after update", item_id)
+        raise HTTPException(status_code=500, detail="Failed to update loot item") from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="Loot item not found")
+    return schemas.LootItem(**_boolify(row, "is_collected"))
 
 
 @app.delete("/api/loot/{item_id}", status_code=204)
 def delete_loot_item(item_id: int) -> Response:
-    execute("companion", "DELETE FROM items WHERE id = ?", (item_id,))
+    try:
+        execute("companion", "DELETE FROM items WHERE id = ?", (item_id,))
+    except sqlite3.Error as exc:
+        logging.exception("Failed to delete loot item %s", item_id)
+        raise HTTPException(status_code=500, detail="Failed to delete loot item") from exc
     return Response(status_code=204)
 
 
@@ -195,88 +224,133 @@ def get_build(build_id: int) -> schemas.Build:
 
 @app.post("/api/builds", response_model=schemas.Build, status_code=201)
 def create_build(payload: schemas.BuildCreate) -> schemas.Build:
-    new_id = execute(
-        "companion",
-        """
-        INSERT INTO builds (name, race, class, subclass, notes)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            payload.name,
-            payload.race,
-            payload.class_name,
-            payload.subclass,
-            payload.notes,
-        ),
-        fetch_lastrowid=True,
-    )
-    assert new_id is not None
-
-    for level in payload.levels:
-        execute(
+    try:
+        new_id = execute(
             "companion",
             """
-            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO builds (name, race, class, subclass, notes)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
-                new_id,
-                level.level,
-                level.spells or "",
-                level.feats or "",
-                level.subclass_choice or "",
-                level.multiclass_choice or "",
+                payload.name,
+                payload.race,
+                payload.class_name,
+                payload.subclass,
+                payload.notes,
             ),
+            fetch_lastrowid=True,
         )
-    return _load_build(new_id)
+    except sqlite3.Error as exc:
+        logging.exception("Failed to create build")
+        raise HTTPException(status_code=500, detail="Failed to create build") from exc
+    if new_id is None:
+        raise HTTPException(status_code=500, detail="Failed to create build")
+
+    for level in payload.levels:
+        try:
+            execute(
+                "companion",
+                """
+                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_id,
+                    level.level,
+                    level.spells or "",
+                    level.feats or "",
+                    level.subclass_choice or "",
+                    level.multiclass_choice or "",
+                ),
+            )
+        except sqlite3.Error as exc:
+            logging.exception(
+                "Failed to create level %s for build %s", level.level, new_id
+            )
+            raise HTTPException(status_code=500, detail="Failed to create build") from exc
+    try:
+        return _load_build(new_id)
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load build %s after creation", new_id)
+        raise HTTPException(status_code=500, detail="Failed to create build") from exc
 
 
 @app.put("/api/builds/{build_id}", response_model=schemas.Build)
 def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
-    existing = fetch_one(
-        "companion",
-        "SELECT id FROM builds WHERE id = ?",
-        (build_id,),
-    )
+    try:
+        existing = fetch_one(
+            "companion",
+            "SELECT id FROM builds WHERE id = ?",
+            (build_id,),
+        )
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load build %s for update", build_id)
+        raise HTTPException(status_code=500, detail="Failed to update build") from exc
     if existing is None:
         raise HTTPException(status_code=404, detail="Build not found")
 
-    execute(
-        "companion",
-        "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ? WHERE id = ?",
-        (
-            payload.name,
-            payload.race,
-            payload.class_name,
-            payload.subclass,
-            payload.notes,
-            build_id,
-        ),
-    )
-    execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
-    for level in payload.levels:
+    try:
         execute(
             "companion",
-            """
-            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
+            "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ? WHERE id = ?",
             (
+                payload.name,
+                payload.race,
+                payload.class_name,
+                payload.subclass,
+                payload.notes,
                 build_id,
-                level.level,
-                level.spells or "",
-                level.feats or "",
-                level.subclass_choice or "",
-                level.multiclass_choice or "",
             ),
         )
-    return _load_build(build_id)
+    except sqlite3.Error as exc:
+        logging.exception("Failed to update build %s", build_id)
+        raise HTTPException(status_code=500, detail="Failed to update build") from exc
+    try:
+        execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
+    except sqlite3.Error as exc:
+        logging.exception("Failed to reset levels for build %s", build_id)
+        raise HTTPException(status_code=500, detail="Failed to update build") from exc
+    for level in payload.levels:
+        try:
+            execute(
+                "companion",
+                """
+                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    build_id,
+                    level.level,
+                    level.spells or "",
+                    level.feats or "",
+                    level.subclass_choice or "",
+                    level.multiclass_choice or "",
+                ),
+            )
+        except sqlite3.Error as exc:
+            logging.exception(
+                "Failed to update level %s for build %s", level.level, build_id
+            )
+            raise HTTPException(status_code=500, detail="Failed to update build") from exc
+    try:
+        return _load_build(build_id)
+    except sqlite3.Error as exc:
+        logging.exception("Failed to load build %s after update", build_id)
+        raise HTTPException(status_code=500, detail="Failed to update build") from exc
 
 
 @app.delete("/api/builds/{build_id}", status_code=204)
 def delete_build(build_id: int) -> Response:
-    execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
-    execute("companion", "DELETE FROM builds WHERE id = ?", (build_id,))
+    try:
+        execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
+    except sqlite3.Error as exc:
+        logging.exception("Failed to delete levels for build %s", build_id)
+        raise HTTPException(status_code=500, detail="Failed to delete build") from exc
+    try:
+        execute("companion", "DELETE FROM builds WHERE id = ?", (build_id,))
+    except sqlite3.Error as exc:
+        logging.exception("Failed to delete build %s", build_id)
+        raise HTTPException(status_code=500, detail="Failed to delete build") from exc
     return Response(status_code=204)
 
 

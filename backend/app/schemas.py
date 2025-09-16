@@ -231,6 +231,7 @@ class SpellProperty(BaseModel):
 class Spell(BaseModel):
     name: str
     level: Optional[str] = None
+    school: Optional[str] = None
     description: Optional[str] = None
     properties: List[SpellProperty] = Field(default_factory=list)
 

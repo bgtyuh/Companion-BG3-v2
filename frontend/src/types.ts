@@ -159,6 +159,7 @@ export interface SpellProperty {
 export interface Spell {
   name: string
   level?: string | null
+  school?: string | null
   description?: string | null
   properties: SpellProperty[]
 }

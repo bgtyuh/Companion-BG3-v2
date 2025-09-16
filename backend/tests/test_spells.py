@@ -37,8 +37,16 @@ def spells_db(tmp_path, monkeypatch: pytest.MonkeyPatch):
             VALUES (?, ?, ?)
             """,
             [
-                ("Magic Missile", "1", "Bolts of magical force strike targets."),
-                ("Fireball", "3", "A bright streak flashes to your chosen point."),
+                (
+                    "Magic Missile",
+                    "1",
+                    "Magic Missile is a level 1 evocation spell that conjures bolts of magical force.",
+                ),
+                (
+                    "Fireball",
+                    "3",
+                    "Fireball is a level 3 evocation spell that engulfs an area in roaring flames.",
+                ),
             ],
         )
         conn.executemany(
@@ -76,7 +84,8 @@ def test_list_spells_returns_spells_with_properties(spells_db, client):
 
     magic_missile = spells["Magic Missile"]
     assert magic_missile["level"] == "1"
-    assert "Bolts of magical force" in magic_missile["description"]
+    assert magic_missile["school"] == "Evocation"
+    assert "bolts of magical force" in (magic_missile.get("description") or "").lower()
     assert _properties_by_name(magic_missile) == {
         "Casting Time": "1 action",
         "Range": "120 feet",
@@ -84,7 +93,8 @@ def test_list_spells_returns_spells_with_properties(spells_db, client):
 
     fireball = spells["Fireball"]
     assert fireball["level"] == "3"
-    assert "bright streak" in (fireball.get("description") or "").lower()
+    assert fireball["school"] == "Evocation"
+    assert "roaring flames" in (fireball.get("description") or "").lower()
     assert _properties_by_name(fireball) == {
         "Area": "20-foot-radius sphere",
         "Saving Throw": "DEX",

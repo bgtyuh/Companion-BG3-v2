@@ -1,5 +1,9 @@
+const trailingQualifierPattern = /(?:\s*(?:\([^)]*\)|\[[^\]]*\]))+$/g
+
 function normalizeName(value: string) {
   return value
+    .trim()
+    .replace(trailingQualifierPattern, '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

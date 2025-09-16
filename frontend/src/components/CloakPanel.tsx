@@ -3,9 +3,10 @@ import { AccessoryPanel } from './AccessoryPanel'
 
 interface CloakPanelProps {
   cloaks: CloakItem[]
+  defaultCollapsed?: boolean
 }
 
-export function CloakPanel({ cloaks }: CloakPanelProps) {
+export function CloakPanel({ cloaks, defaultCollapsed = true }: CloakPanelProps) {
   return (
     <AccessoryPanel
       items={cloaks}
@@ -13,6 +14,7 @@ export function CloakPanel({ cloaks }: CloakPanelProps) {
       subtitle="Trouvez la cape idéale pour vos subterfuges ou vos duels"
       searchPlaceholder="Rechercher une cape"
       emptyLabel="Aucune cape ne correspond à la recherche."
+      defaultCollapsed={defaultCollapsed}
     />
   )
 }

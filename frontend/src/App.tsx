@@ -3,21 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
 import type { Build, Enemy, LootItem } from './types'
-import { AmuletPanel } from './components/AmuletPanel'
-import { ArmouryPanel } from './components/ArmouryPanel'
 import { BestiaryPanel } from './components/BestiaryPanel'
 import { BuildLibrary } from './components/BuildLibrary'
-import { CloakPanel } from './components/CloakPanel'
-import { ClothingPanel } from './components/ClothingPanel'
+import { EquipmentTabs } from './components/EquipmentTabs'
 import { LootChecklist } from './components/LootChecklist'
-import { FootwearPanel } from './components/FootwearPanel'
-import { HandwearPanel } from './components/HandwearPanel'
-import { HeadwearPanel } from './components/HeadwearPanel'
 import { PartyPlanner } from './components/PartyPlanner'
-import { RingPanel } from './components/RingPanel'
 import { SpellLibrary } from './components/SpellLibrary'
-import { ShieldPanel } from './components/ShieldPanel'
-import { WeaponPanel } from './components/WeaponPanel'
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
@@ -253,16 +244,18 @@ function App() {
               onUpdate={handleUpdateBuild}
               onDelete={handleDeleteBuild}
             />
-            <ArmouryPanel armours={armours} />
-            <ShieldPanel shields={shields} />
-            <WeaponPanel weapons={weapons} />
-            <ClothingPanel clothing={clothing} />
-            <HeadwearPanel headwears={headwears} />
-            <HandwearPanel handwears={handwears} />
-            <FootwearPanel footwears={footwears} />
-            <CloakPanel cloaks={cloaks} />
-            <RingPanel rings={rings} />
-            <AmuletPanel amulets={amulets} />
+            <EquipmentTabs
+              armours={armours}
+              shields={shields}
+              weapons={weapons}
+              clothing={clothing}
+              headwears={headwears}
+              handwears={handwears}
+              footwears={footwears}
+              cloaks={cloaks}
+              rings={rings}
+              amulets={amulets}
+            />
             <BestiaryPanel
               enemies={enemies}
               onCreate={handleCreateEnemy}

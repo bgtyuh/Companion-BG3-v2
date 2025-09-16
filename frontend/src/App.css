@@ -1078,8 +1078,8 @@ button:focus-visible {
 .equipment-layout {
   position: relative;
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
   grid-template-areas:
     'head character cloak'
     'armour character amulet'
@@ -1087,7 +1087,7 @@ button:focus-visible {
     'footwear character ring2'
     'mainHand character offHand'
     'ranged character clothing';
-  padding: 1.5rem;
+  padding: 1.35rem;
   border-radius: 24px;
   background: rgba(12, 23, 42, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -1126,9 +1126,9 @@ button:focus-visible {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 18px;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 16px;
   background: rgba(16, 28, 52, 0.68);
   border: 1px solid rgba(148, 163, 184, 0.18);
   min-height: 0;
@@ -1153,9 +1153,9 @@ button:focus-visible {
 }
 
 .equipment-slot .icon-grid__item {
-  gap: 0.35rem;
-  padding: 0.65rem 0.55rem;
-  border-radius: 16px;
+  gap: 0.3rem;
+  padding: 0.45rem 0.4rem;
+  border-radius: 12px;
 }
 
 .equipment-slot .icon-grid__image {

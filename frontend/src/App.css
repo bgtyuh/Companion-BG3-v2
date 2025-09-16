@@ -958,10 +958,10 @@ button:focus-visible {
 }
 
 .bestiary {
-  display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .bestiary__list,
@@ -1169,8 +1169,7 @@ button:focus-visible {
     grid-column: auto;
   }
 
-  .party-planner__layout,
-  .bestiary {
+  .party-planner__layout {
     grid-template-columns: 1fr;
   }
 

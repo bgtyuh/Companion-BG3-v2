@@ -52,7 +52,38 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return undefined
   }
 
-  return (await response.json()) as T
+  const responseClone = response.clone()
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const rawBody = (await responseClone.text()).trim()
+    const snippet = rawBody.slice(0, 200)
+    throw new Error(
+      rawBody
+        ? `Réponse inattendue du serveur (type ${contentType || 'inconnu'}). Vérifiez que l'API renvoie du JSON valide. Aperçu : ${snippet}`
+        : `Réponse inattendue du serveur (type ${contentType || 'inconnu'}). Vérifiez que l'API renvoie du JSON valide.`,
+    )
+  }
+
+  try {
+    return (await response.json()) as T
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      let snippet = ''
+      try {
+        const rawBody = (await responseClone.text()).trim()
+        snippet = rawBody.slice(0, 200)
+      } catch {
+        // ignore read errors when building the debug message
+      }
+      throw new Error(
+        snippet
+          ? `Impossible de décoder la réponse JSON du serveur. Vérifiez que l'API renvoie du JSON valide. Aperçu : ${snippet}`
+          : "Impossible de décoder la réponse JSON du serveur. Vérifiez que l'API renvoie du JSON valide.",
+      )
+    }
+    throw error
+  }
 }
 
 export const api = {

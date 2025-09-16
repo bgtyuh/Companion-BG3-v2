@@ -480,6 +480,36 @@ button:focus-visible {
   box-shadow: 0 22px 45px rgba(4, 10, 30, 0.45);
 }
 
+.build-form__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.build-form__header h3 {
+  margin: 0;
+}
+
+.build-form__close {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.build-form__close:hover,
+.build-form__close:focus-visible {
+  color: var(--color-text-primary);
+  background: rgba(148, 163, 184, 0.18);
+  outline: none;
+}
+
 .build-form__levels {
   display: flex;
   flex-direction: column;

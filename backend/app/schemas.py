@@ -37,6 +37,7 @@ class BuildLevelBase(BaseModel):
     feats: Optional[str] = ""
     subclass_choice: Optional[str] = ""
     multiclass_choice: Optional[str] = ""
+    note: Optional[str] = ""
 
 
 class BuildLevelCreate(BuildLevelBase):

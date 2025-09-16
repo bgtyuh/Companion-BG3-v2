@@ -42,7 +42,7 @@ def _load_build(build_id: int) -> schemas.Build:
         raise HTTPException(status_code=404, detail="Build not found")
     level_rows = fetch_all(
         "companion",
-        "SELECT id, level, spells, feats, subclass_choice, multiclass_choice FROM build_levels WHERE build_id = ? ORDER BY level",
+        "SELECT id, level, spells, feats, subclass_choice, multiclass_choice, note FROM build_levels WHERE build_id = ? ORDER BY level",
         (build_id,),
     )
     levels = [
@@ -53,6 +53,7 @@ def _load_build(build_id: int) -> schemas.Build:
             feats=row.get("feats") or "",
             subclass_choice=row.get("subclass_choice") or "",
             multiclass_choice=row.get("multiclass_choice") or "",
+            note=row.get("note") or "",
         )
         for row in level_rows
     ]
@@ -181,7 +182,7 @@ def list_builds() -> List[schemas.Build]:
     level_rows = fetch_all(
         "companion",
         f"""
-        SELECT build_id, id, level, spells, feats, subclass_choice, multiclass_choice
+        SELECT build_id, id, level, spells, feats, subclass_choice, multiclass_choice, note
         FROM build_levels
         WHERE build_id IN ({placeholders})
         ORDER BY level
@@ -198,6 +199,7 @@ def list_builds() -> List[schemas.Build]:
                 feats=row.get("feats") or "",
                 subclass_choice=row.get("subclass_choice") or "",
                 multiclass_choice=row.get("multiclass_choice") or "",
+                note=row.get("note") or "",
             )
         )
 
@@ -251,8 +253,8 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
             execute(
                 "companion",
                 """
-                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     new_id,
@@ -261,6 +263,7 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
                     level.feats or "",
                     level.subclass_choice or "",
                     level.multiclass_choice or "",
+                    level.note or "",
                 ),
             )
         except sqlite3.Error as exc:
@@ -315,8 +318,8 @@ def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
             execute(
                 "companion",
                 """
-                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     build_id,
@@ -325,6 +328,7 @@ def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
                     level.feats or "",
                     level.subclass_choice or "",
                     level.multiclass_choice or "",
+                    level.note or "",
                 ),
             )
         except sqlite3.Error as exc:

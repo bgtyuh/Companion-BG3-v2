@@ -17,6 +17,7 @@ import type {
 } from '../types'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { getIconUrl, normalizeName, type IconCategory } from '../utils/icons'
+import { getSpellLevelLabel, sortSpellsByLevel } from '../utils/spells'
 import { IconCard } from './IconCard'
 import { Panel } from './Panel'
 
@@ -345,13 +346,15 @@ function renderEquipmentTooltip(entry: EquipmentEntry) {
 
 function renderSpellTooltip(spell: Spell) {
   const properties = spell.properties.slice(0, 4)
+  const levelLabel = getSpellLevelLabel(spell.level)
+  const levelTitle = levelLabel === 'Cantrips' ? 'Type :' : 'Niveau :'
 
   return (
     <>
       <div className="icon-grid__tooltip-meta">
-        {spell.level ? (
+        {levelLabel ? (
           <span>
-            <strong>Niveau :</strong> {spell.level}
+            <strong>{levelTitle}</strong> {levelLabel}
           </span>
         ) : null}
       </div>
@@ -412,6 +415,11 @@ export function CharacterSheet({
     equipmentData.headwears,
   ])
 
+  const knownSpells = useMemo(
+    () => (member ? spells.filter((spell) => member.spells.includes(spell.name)).sort(sortSpellsByLevel) : []),
+    [spells, member],
+  )
+
   if (!member) {
     return (
       <Panel title="Fiche de personnage" subtitle="Sélectionnez un héros pour consulter ses détails">
@@ -419,8 +427,6 @@ export function CharacterSheet({
       </Panel>
     )
   }
-
-  const knownSpells = spells.filter((spell) => member.spells.includes(spell.name))
   const gear = member.equipment ?? {}
   const nextLevel = Math.min(12, member.level + 1)
   const nextStep = build?.levels.find((level) => level.level === nextLevel)
@@ -489,6 +495,11 @@ export function CharacterSheet({
                     <strong>Choix spéciaux :</strong>{' '}
                     {nextStep.subclass_choice || nextStep.multiclass_choice || '—'}
                   </p>
+                  {nextStep.note ? (
+                    <p>
+                      <strong>Note :</strong> {nextStep.note}
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <p className="character-sheet__notes">Ce build couvre jusqu'au niveau {build.levels.at(-1)?.level ?? ''}.</p>
@@ -517,14 +528,6 @@ export function CharacterSheet({
           </ul>
         </div>
         <div>
-          <h4>Jets de sauvegarde</h4>
-          <ul className="tag-list">
-            {member.savingThrows.length ? (
-              member.savingThrows.map((save) => <li key={save}>{save}</li>)
-            ) : (
-              <li className="empty">Aucun bonus renseigné</li>
-            )}
-          </ul>
           <h4>Compétences</h4>
           <ul className="tag-list">
             {member.skills.length ? member.skills.map((skill) => <li key={skill}>{skill}</li>) : <li className="empty">—</li>}

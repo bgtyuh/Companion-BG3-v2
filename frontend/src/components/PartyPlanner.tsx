@@ -13,6 +13,7 @@ import type {
   Spell,
 } from '../types'
 import { equipmentSlotKeys } from '../types'
+import { getSpellLevelShortLabel, sortSpellsByLevel } from '../utils/spells'
 import { downloadJSON, readJSONFile } from '../utils/file'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { CharacterSheet } from './CharacterSheet'
@@ -63,10 +64,6 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
-function isAbilityScoreKey(value: string): value is AbilityScoreKey {
-  return abilityKeys.includes(value as AbilityScoreKey)
-}
-
 function isValidAbilityScores(value: unknown): value is Record<AbilityScoreKey, number> {
   if (!isRecord(value)) return false
   return abilityKeys.every((key) => {
@@ -91,9 +88,6 @@ function isValidPartyMember(value: unknown): value is PartyMember {
   if (typeof value.level !== 'number' || !Number.isFinite(value.level) || !Number.isInteger(value.level)) return false
   if (!isValidAbilityScores(value.abilityScores)) return false
 
-  if (!isStringArray(value.savingThrows)) return false
-  if (!value.savingThrows.every((item) => isAbilityScoreKey(item))) return false
-
   if (!isStringArray(value.skills)) return false
   if (!isStringArray(value.spells)) return false
 
@@ -114,6 +108,7 @@ type PartyMemberInput = Omit<PartyMember, 'equipment'> & {
   equipment?: unknown
   equippedArmour?: unknown
   equippedWeapons?: unknown
+  savingThrows?: unknown
 }
 
 function sanitizeMember(member: PartyMemberInput): PartyMember {
@@ -181,9 +176,6 @@ function sanitizeMember(member: PartyMemberInput): PartyMember {
       scores[key] = member.abilityScores[key]
       return scores
     }, {} as PartyMember['abilityScores']),
-    savingThrows: member.savingThrows.filter((savingThrow): savingThrow is AbilityScoreKey =>
-      abilityKeys.includes(savingThrow),
-    ),
     skills: [...member.skills],
     equipment,
     spells: [...member.spells],
@@ -207,7 +199,6 @@ function createEmptyMember(): PartyMember {
       acc[key] = 10
       return acc
     }, {} as PartyMember['abilityScores']),
-    savingThrows: [],
     skills: [],
     equipment: {},
     spells: [],
@@ -280,9 +271,11 @@ export function PartyPlanner({
   )
 
   const filteredSpells = useMemo(() => {
-    if (!spellQuery.trim()) return spells.slice(0, 8)
-    const lower = spellQuery.toLowerCase()
-    return spells.filter((spell) => spell.name.toLowerCase().includes(lower)).slice(0, 8)
+    const trimmed = spellQuery.trim().toLowerCase()
+    const matches = trimmed
+      ? spells.filter((spell) => spell.name.toLowerCase().includes(trimmed))
+      : spells
+    return matches.slice().sort(sortSpellsByLevel).slice(0, 8)
   }, [spells, spellQuery])
 
   const offHandOptions = useMemo(() => {
@@ -343,7 +336,6 @@ export function PartyPlanner({
       abilityScores: { ...editableMember.abilityScores },
       spells: [...editableMember.spells],
       skills: [...editableMember.skills],
-      savingThrows: [...editableMember.savingThrows],
       equipment: { ...(editableMember.equipment ?? {}) },
     })
     setSelectedId(member.id)
@@ -717,14 +709,17 @@ export function PartyPlanner({
                   </div>
                   <div className="spell-selector__content">
                     <ul className="spell-selector__results">
-                      {filteredSpells.map((spell) => (
-                        <li key={spell.name}>
-                          <button type="button" onClick={() => addSpellToForm(spell.name)}>
-                            {spell.name}
-                          </button>
-                          {spell.level ? <span>Niv. {spell.level}</span> : null}
-                        </li>
-                      ))}
+                      {filteredSpells.map((spell) => {
+                        const levelLabel = getSpellLevelShortLabel(spell.level)
+                        return (
+                          <li key={spell.name}>
+                            <button type="button" onClick={() => addSpellToForm(spell.name)}>
+                              {spell.name}
+                            </button>
+                            {levelLabel ? <span>{levelLabel}</span> : null}
+                          </li>
+                        )
+                      })}
                     </ul>
                     <ul className="tag-list">
                       {editingMember.spells.map((spell) => (

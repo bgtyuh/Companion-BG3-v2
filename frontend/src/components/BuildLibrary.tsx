@@ -17,6 +17,7 @@ const emptyLevel: BuildLevel = {
   feats: '',
   subclass_choice: '',
   multiclass_choice: '',
+  note: '',
 }
 
 export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
@@ -47,6 +48,7 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
           feats: entry.feats?.trim() ?? '',
           subclass_choice: entry.subclass_choice?.trim() ?? '',
           multiclass_choice: entry.multiclass_choice?.trim() ?? '',
+          note: entry.note?.trim() ?? '',
         }))
         .sort((a, b) => a.level - b.level),
     }
@@ -66,7 +68,9 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
       class_name: build.class_name ?? '',
       subclass: build.subclass ?? '',
       notes: build.notes ?? '',
-      levels: build.levels.length ? build.levels.map((level) => ({ ...level })) : [{ ...emptyLevel }],
+      levels: build.levels.length
+        ? build.levels.map((level) => ({ ...level, note: level.note ?? '' }))
+        : [{ ...emptyLevel }],
     })
     setSelectedId(build.id)
     setIsEditing(true)
@@ -222,6 +226,14 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
                           multiclass_choice: event.target.value,
                         })
                       }
+                    />
+                  </label>
+                  <label>
+                    Note
+                    <textarea
+                      rows={2}
+                      value={level.note ?? ''}
+                      onChange={(event) => updateLevel(index, { note: event.target.value })}
                     />
                   </label>
                   <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>

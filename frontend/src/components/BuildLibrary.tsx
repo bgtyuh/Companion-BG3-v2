@@ -21,14 +21,7 @@ const emptyLevel: BuildLevel = {
 }
 
 function createEmptyForm(): Omit<Build, 'id'> {
-  return {
-    name: '',
-    race: '',
-    class_name: '',
-    subclass: '',
-    notes: '',
-    levels: [{ ...emptyLevel }],
-  }
+  return { name: '', race: '', class_name: '', subclass: '', notes: '', levels: [{ ...emptyLevel }] }
 }
 
 export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
@@ -253,7 +246,12 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
                   </div>
                 ))}
               </div>
-              <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
+              <div className="form__actions">
+                <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
+                <button type="button" className="link" onClick={resetForm}>
+                  Annuler
+                </button>
+              </div>
             </form>
           ) : (
             <p className="empty">

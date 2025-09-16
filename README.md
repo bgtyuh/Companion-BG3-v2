@@ -60,6 +60,9 @@ Les fichiers SQLite fournis dans `data/` contiennent :
 - `bg3_armours.db`, `bg3_weapons.db`, `bg3_spells.db`, `bg3_races.db`, `bg3_classes.db` : données encyclopédiques.
 - `bg3_companion.db` : espace d'écriture utilisé par l'application (builds, bestiaire, checklist de butin, etc.).
 
+Pour charger un autre répertoire que `data/`, définissez la variable d'environnement `BG3_DATA_DIR` avant de lancer l'API. Le chemin
+peut être absolu ou relatif à la racine du projet.
+
 ## Vérifications
 
 Des commandes simples permettent de valider les deux projets :

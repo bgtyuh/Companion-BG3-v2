@@ -36,6 +36,32 @@ DATABASE_PATHS: Dict[str, Path] = {
     key: DATA_DIR / filename for key, filename in DATABASE_FILENAMES.items()
 }
 
+_SCHEMA_INITIALIZED: Dict[tuple[str, Path], bool] = {}
+
+
+def _ensure_companion_schema(conn: sqlite3.Connection) -> None:
+    """Apply lightweight schema migrations for the companion database."""
+
+    cursor = conn.execute("PRAGMA table_info(build_levels)")
+    columns = {row["name"] for row in cursor.fetchall()}
+    if not columns:
+        # The table does not exist in the current database; nothing to migrate.
+        return
+    if "note" not in columns:
+        conn.execute("ALTER TABLE build_levels ADD COLUMN note TEXT DEFAULT ''")
+        conn.commit()
+
+
+def _initialize_schema(conn: sqlite3.Connection, db_key: str, path: Path) -> None:
+    cache_key = (db_key, path)
+    if _SCHEMA_INITIALIZED.get(cache_key):
+        return
+
+    if db_key == "companion":
+        _ensure_companion_schema(conn)
+
+    _SCHEMA_INITIALIZED[cache_key] = True
+
 
 @contextmanager
 def get_connection(db_key: str) -> Iterator[sqlite3.Connection]:
@@ -45,6 +71,7 @@ def get_connection(db_key: str) -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     try:
+        _initialize_schema(conn, db_key, path)
         yield conn
     finally:
         conn.close()

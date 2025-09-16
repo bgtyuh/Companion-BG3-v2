@@ -69,7 +69,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
           : `Réponse inattendue du serveur : du HTML a été reçu. Vérifiez que VITE_API_BASE_URL pointe vers l'API et que le serveur backend est démarré.`,
       )
     }
-
     throw new Error(
       rawBody
         ? `Réponse inattendue du serveur (type ${contentType || 'inconnu'}). Vérifiez que l'API renvoie du JSON valide. Aperçu : ${snippet}`

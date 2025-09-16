@@ -837,12 +837,14 @@ button:focus-visible {
   color: var(--color-text-secondary);
   cursor: default;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  z-index: 0;
 }
 
 .icon-grid__item:focus-visible,
 .icon-grid__item:hover {
   transform: translateY(-2px);
   box-shadow: 0 16px 32px rgba(5, 12, 30, 0.45);
+  z-index: 20;
 }
 
 .icon-grid__image {

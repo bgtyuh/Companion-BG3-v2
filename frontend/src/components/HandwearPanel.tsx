@@ -14,6 +14,7 @@ export function HandwearPanel({ handwears, defaultCollapsed = true }: HandwearPa
       subtitle="Comparez les gants pour optimiser vos actions et compétences"
       searchPlaceholder="Rechercher des gants"
       emptyLabel="Aucun gant ne correspond à la recherche."
+      iconCategory="handwear"
       defaultCollapsed={defaultCollapsed}
     />
   )

@@ -14,12 +14,13 @@ export function ClothingPanel({ clothing, defaultCollapsed = true }: ClothingPan
       subtitle="Assurez-vous que chaque aventurier dispose de la tenue adéquate"
       searchPlaceholder="Rechercher une tenue"
       emptyLabel="Aucune tenue ne correspond à la recherche."
+      iconCategory="clothing"
       renderDetails={(item) =>
         item.armour_class_base != null || item.armour_class_modifier ? (
-          <p className="accessory-grid__details">
-            CA de base : {item.armour_class_base ?? '—'}{' '}
+          <>
+            <strong>Classe d'armure :</strong> {item.armour_class_base ?? '—'}{' '}
             {item.armour_class_modifier ? `(${item.armour_class_modifier})` : ''}
-          </p>
+          </>
         ) : null
       }
       defaultCollapsed={defaultCollapsed}

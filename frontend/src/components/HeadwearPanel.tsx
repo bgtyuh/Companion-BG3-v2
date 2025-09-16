@@ -14,6 +14,7 @@ export function HeadwearPanel({ headwears, defaultCollapsed = true }: HeadwearPa
       subtitle="Choisissez les couvre-chefs adaptés à chaque situation"
       searchPlaceholder="Rechercher une coiffe"
       emptyLabel="Aucune coiffe ne correspond à la recherche."
+      iconCategory="headwear"
       defaultCollapsed={defaultCollapsed}
     />
   )

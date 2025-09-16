@@ -14,9 +14,12 @@ export function ShieldPanel({ shields, defaultCollapsed = true }: ShieldPanelPro
       subtitle="Identifiez les boucliers qui compléteront vos défenses"
       searchPlaceholder="Rechercher un bouclier"
       emptyLabel="Aucun bouclier ne correspond à la recherche."
+      iconCategory="shield"
       renderDetails={(item) =>
         item.shield_class_base != null ? (
-          <p className="accessory-grid__details">Classe de bouclier : {item.shield_class_base}</p>
+          <>
+            <strong>Classe de bouclier :</strong> {item.shield_class_base}
+          </>
         ) : null
       }
       defaultCollapsed={defaultCollapsed}

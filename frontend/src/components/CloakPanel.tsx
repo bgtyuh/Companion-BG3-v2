@@ -14,6 +14,7 @@ export function CloakPanel({ cloaks, defaultCollapsed = true }: CloakPanelProps)
       subtitle="Trouvez la cape idéale pour vos subterfuges ou vos duels"
       searchPlaceholder="Rechercher une cape"
       emptyLabel="Aucune cape ne correspond à la recherche."
+      iconCategory="cloak"
       defaultCollapsed={defaultCollapsed}
     />
   )

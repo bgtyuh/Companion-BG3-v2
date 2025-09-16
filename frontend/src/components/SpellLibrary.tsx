@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { Spell } from '../types'
 import { Panel } from './Panel'
+import { IconCard } from './IconCard'
+import { getIconUrl } from '../utils/icons'
 
 interface SpellLibraryProps {
   spells: Spell[]
@@ -38,24 +40,33 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
           ))}
         </select>
       </div>
-      <div className="spell-library">
+      <div className="icon-grid spell-library">
         {filtered.map((spell) => (
-          <article key={spell.name}>
-            <header>
-              <h4>{spell.name}</h4>
-              {spell.level ? <span>Niv. {spell.level}</span> : null}
-            </header>
-            <p>{spell.description}</p>
-            {spell.properties.length ? (
-              <ul>
-                {spell.properties.slice(0, 3).map((property) => (
-                  <li key={property.name}>
-                    <strong>{property.name} :</strong> {property.value}
-                  </li>
-                ))}
-              </ul>
+          <IconCard key={spell.name} name={spell.name} iconUrl={getIconUrl('spell', spell.name)}>
+            <div className="icon-grid__tooltip-meta">
+              {spell.level ? (
+                <span>
+                  <strong>Niveau :</strong> {spell.level}
+                </span>
+              ) : null}
+            </div>
+            {spell.description ? (
+              <p className="icon-grid__tooltip-description">{spell.description}</p>
             ) : null}
-          </article>
+            {spell.properties.length ? (
+              <div className="icon-grid__tooltip-section">
+                <strong>Propriétés</strong>
+                <ul className="icon-grid__tooltip-list">
+                  {spell.properties.slice(0, 4).map((property) => (
+                    <li key={property.name}>
+                      <span className="icon-grid__tooltip-list-title">{property.name}</span>
+                      <span>{property.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </IconCard>
         ))}
         {!filtered.length ? <p className="empty">Aucun sort ne correspond à la recherche actuelle.</p> : null}
       </div>

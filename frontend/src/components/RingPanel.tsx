@@ -14,6 +14,7 @@ export function RingPanel({ rings, defaultCollapsed = true }: RingPanelProps) {
       subtitle="Repérez les anneaux et leurs enchantements uniques"
       searchPlaceholder="Rechercher un anneau"
       emptyLabel="Aucun anneau ne correspond à la recherche."
+      iconCategory="ring"
       defaultCollapsed={defaultCollapsed}
     />
   )

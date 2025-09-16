@@ -23,35 +23,35 @@ function createIconMap(glob: Record<string, unknown>) {
 }
 
 const weaponIcons = import.meta
-  .glob('../../ressources/icons/weapon_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/weapon_images/*.png', { eager: true, import: 'default' })
 const armourIcons = import.meta
-  .glob('../../ressources/icons/armour_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/armour_images/*.png', { eager: true, import: 'default' })
 const shieldIcons = import.meta
-  .glob('../../ressources/icons/shield_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/shield_images/*.png', { eager: true, import: 'default' })
 const clothingIcons = import.meta
-  .glob('../../ressources/icons/clothing_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/clothing_images/*.png', { eager: true, import: 'default' })
 const headwearIcons = import.meta
-  .glob('../../ressources/icons/headwear_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/headwear_images/*.png', { eager: true, import: 'default' })
 const handwearIcons = import.meta
-  .glob('../../ressources/icons/handwear_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/handwear_images/*.png', { eager: true, import: 'default' })
 const footwearIcons = import.meta
-  .glob('../../ressources/icons/footwear_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/footwear_images/*.png', { eager: true, import: 'default' })
 const cloakIcons = import.meta
-  .glob('../../ressources/icons/cloak_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/cloak_images/*.png', { eager: true, import: 'default' })
 const ringIcons = import.meta
-  .glob('../../ressources/icons/ring_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/ring_images/*.png', { eager: true, import: 'default' })
 const amuletIcons = import.meta
-  .glob('../../ressources/icons/amulet_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/amulet_images/*.png', { eager: true, import: 'default' })
 const spellIcons = import.meta
-  .glob('../../ressources/icons/spell_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/spell_images/*.png', { eager: true, import: 'default' })
 const abilityIcons = import.meta
-  .glob('../../ressources/icons/ability_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/ability_images/*.png', { eager: true, import: 'default' })
 const classIcons = import.meta
-  .glob('../../ressources/icons/class_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/class_images/*.png', { eager: true, import: 'default' })
 const raceIcons = import.meta
-  .glob('../../ressources/icons/race_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/race_images/*.png', { eager: true, import: 'default' })
 const backgroundIcons = import.meta
-  .glob('../../ressources/icons/background_images/*.png', { eager: true, import: 'default' })
+  .glob('../../../ressources/icons/background_images/*.png', { eager: true, import: 'default' })
 
 type IconCategory =
   | 'weapon'

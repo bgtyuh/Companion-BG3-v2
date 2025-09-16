@@ -22,6 +22,7 @@ LEVEL_PAYLOAD = {
     "feats": "",
     "subclass_choice": "",
     "multiclass_choice": "",
+    "note": "",
 }
 
 

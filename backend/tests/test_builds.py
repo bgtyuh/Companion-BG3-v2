@@ -35,6 +35,7 @@ def _prepare_build_tables(db_path: Path) -> None:
                 feats TEXT,
                 subclass_choice TEXT,
                 multiclass_choice TEXT,
+                note TEXT,
                 FOREIGN KEY(build_id) REFERENCES builds(id)
             )
             """
@@ -62,6 +63,7 @@ def test_create_build_creates_entry_with_levels(
                 "feats": "Sharpshooter",
                 "subclass_choice": "Arcane Shot",
                 "multiclass_choice": "",
+                "note": "Open with Magic Missile for consistent damage.",
             },
             {
                 "level": 2,
@@ -69,6 +71,7 @@ def test_create_build_creates_entry_with_levels(
                 "feats": "Action Surge",
                 "subclass_choice": "",
                 "multiclass_choice": "",
+                "note": "Action Surge enables burst turns.",
             },
         ],
     }
@@ -87,6 +90,7 @@ def test_create_build_creates_entry_with_levels(
     assert first_level["level"] == 1
     assert first_level["spells"] == "Magic Missile"
     assert first_level["feats"] == "Sharpshooter"
+    assert first_level["note"] == "Open with Magic Missile for consistent damage."
 
     list_response = client.get("/api/builds")
     assert list_response.status_code == 200
@@ -111,6 +115,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
                 "feats": "Sharpshooter",
                 "subclass_choice": "Arcane Shot",
                 "multiclass_choice": "",
+                "note": "Initial loadout.",
             }
         ],
     }
@@ -126,6 +131,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
             "feats": "Sharpshooter",
             "subclass_choice": "Arcane Shot",
             "multiclass_choice": "",
+            "note": "Swap to Hunter's Mark for extra damage.",
         },
         {
             "level": 2,
@@ -133,6 +139,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
             "feats": "Action Surge",
             "subclass_choice": "",
             "multiclass_choice": "",
+            "note": "Leverage Action Surge in key fights.",
         },
     ]
     update_payload = {
@@ -154,6 +161,8 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
     returned_spells = [level["spells"] for level in data["levels"]]
     assert "Hunter's Mark" in returned_spells
     assert "Magic Missile" not in returned_spells
+    notes = [level["note"] for level in data["levels"]]
+    assert any("Hunter's Mark" in note or "extra damage" in note for note in notes)
 
     detail_response = client.get(f"/api/builds/{build_id}")
     assert detail_response.status_code == 200
@@ -178,6 +187,7 @@ def test_delete_build_removes_entry(client: TestClient, test_db: Path) -> None:
                 "feats": "Sharpshooter",
                 "subclass_choice": "Arcane Shot",
                 "multiclass_choice": "",
+                "note": "Initial loadout.",
             }
         ],
     }

@@ -14,6 +14,7 @@ export interface BuildLevel {
   feats?: string | null
   subclass_choice?: string | null
   multiclass_choice?: string | null
+  note?: string | null
 }
 
 export interface Build {
@@ -291,7 +292,6 @@ export interface PartyMember {
   level: number
   buildId?: number
   abilityScores: Record<AbilityScoreKey, number>
-  savingThrows: AbilityScoreKey[]
   skills: string[]
   equipment?: PartyEquipment
   spells: string[]

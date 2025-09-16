@@ -3,9 +3,10 @@ import { AccessoryPanel } from './AccessoryPanel'
 
 interface ShieldPanelProps {
   shields: ShieldItem[]
+  defaultCollapsed?: boolean
 }
 
-export function ShieldPanel({ shields }: ShieldPanelProps) {
+export function ShieldPanel({ shields, defaultCollapsed = true }: ShieldPanelProps) {
   return (
     <AccessoryPanel
       items={shields}
@@ -18,6 +19,7 @@ export function ShieldPanel({ shields }: ShieldPanelProps) {
           <p className="accessory-grid__details">Classe de bouclier : {item.shield_class_base}</p>
         ) : null
       }
+      defaultCollapsed={defaultCollapsed}
     />
   )
 }

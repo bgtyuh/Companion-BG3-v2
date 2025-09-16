@@ -3,9 +3,10 @@ import { AccessoryPanel } from './AccessoryPanel'
 
 interface ClothingPanelProps {
   clothing: ClothingItem[]
+  defaultCollapsed?: boolean
 }
 
-export function ClothingPanel({ clothing }: ClothingPanelProps) {
+export function ClothingPanel({ clothing, defaultCollapsed = true }: ClothingPanelProps) {
   return (
     <AccessoryPanel
       items={clothing}
@@ -21,6 +22,7 @@ export function ClothingPanel({ clothing }: ClothingPanelProps) {
           </p>
         ) : null
       }
+      defaultCollapsed={defaultCollapsed}
     />
   )
 }

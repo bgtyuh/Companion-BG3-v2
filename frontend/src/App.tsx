@@ -115,10 +115,8 @@ function App() {
     queryFn: async () => sortByName(await api.getClasses()),
   })
 
-  const queries = [
-    lootQuery,
-    buildsQuery,
-    enemiesQuery,
+  const primaryQueries = [lootQuery, buildsQuery, enemiesQuery, spellsQuery, racesQuery, classesQuery] as const
+  const equipmentQueries = [
     armoursQuery,
     ringsQuery,
     amuletsQuery,
@@ -129,10 +127,8 @@ function App() {
     headwearsQuery,
     shieldsQuery,
     weaponsQuery,
-    spellsQuery,
-    racesQuery,
-    classesQuery,
   ] as const
+  const queries = [...primaryQueries, ...equipmentQueries]
 
   useFetchWhenOpened(openedEquipmentTabs.armours, armoursQuery)
   useFetchWhenOpened(openedEquipmentTabs.shields, shieldsQuery)
@@ -154,7 +150,7 @@ function App() {
     })
   }
 
-  const isLoading = queries.some((query) => query.isPending && query.fetchStatus !== 'idle')
+  const isLoading = primaryQueries.some((query) => query.isPending && query.fetchStatus !== 'idle')
   const firstError = queries.find((query) => query.error)?.error
   const error =
     firstError == null

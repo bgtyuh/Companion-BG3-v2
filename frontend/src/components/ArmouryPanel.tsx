@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { ArmourItem } from '../types'
 import { Panel } from './Panel'
+import { IconCard } from './IconCard'
+import { getIconUrl } from '../utils/icons'
 
 interface ArmouryPanelProps {
   armours: ArmourItem[]
@@ -52,32 +54,59 @@ export function ArmouryPanel({ armours }: ArmouryPanelProps) {
           ))}
         </select>
       </div>
-      <div className="armour-grid">
-        {filtered.map((item) => (
-          <article key={item.item_id}>
-            <header>
-              <h4>{item.name}</h4>
-              <p>{item.type}</p>
-            </header>
-            <p className="armour-grid__rarity">{item.rarity}</p>
-            <p className="armour-grid__stats">
-              CA de base : {item.armour_class_base ?? '—'}{' '}
-              {item.armour_class_modifier ? `(${item.armour_class_modifier})` : ''}
-            </p>
-            {item.locations.length ? (
-              <p className="armour-grid__location">{item.locations[0].description}</p>
-            ) : null}
-            {item.specials.length ? (
-              <ul className="armour-grid__specials">
-                {item.specials.slice(0, 2).map((special) => (
-                  <li key={special.name}>
-                    <strong>{special.name} :</strong> {special.effect}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </article>
-        ))}
+      <div className="icon-grid armour-grid">
+        {filtered.map((item) => {
+          const specials = item.specials.slice(0, 3)
+          const location = item.locations[0]?.description
+
+          return (
+            <IconCard key={item.item_id} name={item.name} iconUrl={getIconUrl('armour', item.name)}>
+              <div className="icon-grid__tooltip-meta">
+                {item.type ? (
+                  <span>
+                    <strong>Type :</strong> {item.type}
+                  </span>
+                ) : null}
+                {item.rarity ? (
+                  <span>
+                    <strong>Rareté :</strong> {item.rarity}
+                  </span>
+                ) : null}
+                <span>
+                  <strong>Classe d'armure :</strong> {item.armour_class_base ?? '—'}
+                  {item.armour_class_modifier ? ` (${item.armour_class_modifier})` : ''}
+                </span>
+                {item.weight_kg != null ? (
+                  <span>
+                    <strong>Poids :</strong> {item.weight_kg} kg
+                  </span>
+                ) : null}
+              </div>
+              {item.description ? (
+                <p className="icon-grid__tooltip-description">{item.description}</p>
+              ) : null}
+              {specials.length ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Effets</strong>
+                  <ul className="icon-grid__tooltip-list">
+                    {specials.map((special) => (
+                      <li key={special.name}>
+                        <span className="icon-grid__tooltip-list-title">{special.name}</span>
+                        {special.effect ? <span>{special.effect}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {location ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Obtention</strong>
+                  <p>{location}</p>
+                </div>
+              ) : null}
+            </IconCard>
+          )
+        })}
         {!filtered.length ? <p className="empty">Aucune armure ne correspond à la recherche.</p> : null}
       </div>
     </Panel>

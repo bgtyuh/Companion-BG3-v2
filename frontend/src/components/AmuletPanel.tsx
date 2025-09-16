@@ -14,6 +14,7 @@ export function AmuletPanel({ amulets, defaultCollapsed = true }: AmuletPanelPro
       subtitle="Choisissez les talismans qui protégeront votre groupe"
       searchPlaceholder="Rechercher une amulette"
       emptyLabel="Aucune amulette ne correspond à la recherche."
+      iconCategory="amulet"
       defaultCollapsed={defaultCollapsed}
     />
   )

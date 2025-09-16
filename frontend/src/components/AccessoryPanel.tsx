@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { AccessoryItemBase } from '../types'
 import { Panel } from './Panel'
+import { IconCard } from './IconCard'
+import { getIconUrl, type IconCategory } from '../utils/icons'
 
 interface AccessoryPanelProps<T extends AccessoryItemBase> {
   items: T[]
@@ -9,6 +11,7 @@ interface AccessoryPanelProps<T extends AccessoryItemBase> {
   searchPlaceholder: string
   emptyLabel: string
   typeLabel?: string
+  iconCategory: IconCategory
   renderDetails?: (item: T) => ReactNode
   defaultCollapsed?: boolean
 }
@@ -20,6 +23,7 @@ export function AccessoryPanel<T extends AccessoryItemBase>({
   searchPlaceholder,
   emptyLabel,
   typeLabel = 'Type',
+  iconCategory,
   renderDetails,
   defaultCollapsed = true,
 }: AccessoryPanelProps<T>) {
@@ -85,29 +89,60 @@ export function AccessoryPanel<T extends AccessoryItemBase>({
           ))}
         </select>
       </div>
-      <div className="accessory-grid">
-        {filtered.map((item) => (
-          <article key={item.item_id}>
-            <header>
-              <h4>{item.name}</h4>
-              <p>{item.type}</p>
-            </header>
-            <p className="accessory-grid__rarity">{item.rarity}</p>
-            {renderDetails ? renderDetails(item) : null}
-            {item.locations.length ? (
-              <p className="accessory-grid__location">{item.locations[0].description}</p>
-            ) : null}
-            {item.specials.length ? (
-              <ul className="accessory-grid__specials">
-                {item.specials.slice(0, 2).map((special) => (
-                  <li key={special.name}>
-                    <strong>{special.name} :</strong> {special.effect}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </article>
-        ))}
+      <div className="icon-grid accessory-grid">
+        {filtered.map((item) => {
+          const location = item.locations[0]?.description
+          const specials = item.specials.slice(0, 3)
+          const extraDetail = renderDetails ? renderDetails(item) : null
+
+          return (
+            <IconCard key={item.item_id} name={item.name} iconUrl={getIconUrl(iconCategory, item.name)}>
+              <div className="icon-grid__tooltip-meta">
+                {item.type ? (
+                  <span>
+                    <strong>Type :</strong> {item.type}
+                  </span>
+                ) : null}
+                {item.rarity ? (
+                  <span>
+                    <strong>Rareté :</strong> {item.rarity}
+                  </span>
+                ) : null}
+                {extraDetail ? <span>{extraDetail}</span> : null}
+                {item.price_gp != null ? (
+                  <span>
+                    <strong>Prix :</strong> {item.price_gp} po
+                  </span>
+                ) : null}
+              </div>
+              {item.description ? (
+                <p className="icon-grid__tooltip-description">{item.description}</p>
+              ) : null}
+              {specials.length ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Effets</strong>
+                  <ul className="icon-grid__tooltip-list">
+                    {specials.map((special) => (
+                      <li key={special.name}>
+                        <span className="icon-grid__tooltip-list-title">{special.name}</span>
+                        {special.effect ? <span>{special.effect}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {location ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Obtention</strong>
+                  <p>{location}</p>
+                </div>
+              ) : null}
+              {item.quote ? (
+                <p className="icon-grid__tooltip-quote">{item.quote}</p>
+              ) : null}
+            </IconCard>
+          )
+        })}
         {!filtered.length ? <p className="empty">{emptyLabel}</p> : null}
       </div>
     </Panel>

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { WeaponItem } from '../types'
 import { Panel } from './Panel'
+import { IconCard } from './IconCard'
+import { getIconUrl } from '../utils/icons'
 
 interface WeaponPanelProps {
   weapons: WeaponItem[]
@@ -52,35 +54,92 @@ export function WeaponPanel({ weapons }: WeaponPanelProps) {
           ))}
         </select>
       </div>
-      <div className="weapon-grid">
-        {filtered.map((item) => (
-          <article key={item.weapon_id}>
-            <header>
-              <h4>{item.name}</h4>
-              <p>{item.type}</p>
-            </header>
-            <p className="weapon-grid__rarity">{item.rarity}</p>
-            {item.damages.length ? (
-              <ul className="weapon-grid__damage">
-                {item.damages.slice(0, 2).map((damage, index) => (
-                  <li key={`${item.weapon_id}-damage-${index}`}>
-                    {damage.damage_dice} {damage.damage_type} {damage.modifier ? `(${damage.modifier})` : ''}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {item.actions.length ? (
-              <ul className="weapon-grid__actions">
-                {item.actions.slice(0, 1).map((action) => (
-                  <li key={action.name}>
-                    <strong>{action.name} :</strong> {action.description}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {item.locations.length ? <p className="weapon-grid__location">{item.locations[0].description}</p> : null}
-          </article>
-        ))}
+      <div className="icon-grid weapon-grid">
+        {filtered.map((item) => {
+          const damages = item.damages.slice(0, 3)
+          const actions = item.actions.slice(0, 2)
+          const abilities = item.abilities.slice(0, 2)
+          const location = item.locations[0]?.description
+
+          return (
+            <IconCard key={item.weapon_id} name={item.name} iconUrl={getIconUrl('weapon', item.name)}>
+              <div className="icon-grid__tooltip-meta">
+                {item.type ? (
+                  <span>
+                    <strong>Type :</strong> {item.type}
+                  </span>
+                ) : null}
+                {item.rarity ? (
+                  <span>
+                    <strong>Rareté :</strong> {item.rarity}
+                  </span>
+                ) : null}
+                {item.enchantment ? (
+                  <span>
+                    <strong>Enchantement :</strong> +{item.enchantment}
+                  </span>
+                ) : null}
+                {item.attributes ? (
+                  <span>
+                    <strong>Attributs :</strong> {item.attributes}
+                  </span>
+                ) : null}
+              </div>
+              {item.description ? (
+                <p className="icon-grid__tooltip-description">{item.description}</p>
+              ) : null}
+              {damages.length ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Dégâts</strong>
+                  <ul className="icon-grid__tooltip-list">
+                    {damages.map((damage, index) => (
+                      <li key={`${item.weapon_id}-damage-${index}`}>
+                        <span className="icon-grid__tooltip-list-title">
+                          {damage.damage_type ?? '—'}
+                        </span>
+                        <span>
+                          {damage.damage_dice ?? '—'} {damage.modifier ? `(${damage.modifier})` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {actions.length ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Actions</strong>
+                  <ul className="icon-grid__tooltip-list">
+                    {actions.map((action) => (
+                      <li key={action.name}>
+                        <span className="icon-grid__tooltip-list-title">{action.name}</span>
+                        {action.description ? <span>{action.description}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {abilities.length ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Propriétés</strong>
+                  <ul className="icon-grid__tooltip-list">
+                    {abilities.map((ability) => (
+                      <li key={ability.name}>
+                        <span className="icon-grid__tooltip-list-title">{ability.name}</span>
+                        {ability.description ? <span>{ability.description}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {location ? (
+                <div className="icon-grid__tooltip-section">
+                  <strong>Obtention</strong>
+                  <p>{location}</p>
+                </div>
+              ) : null}
+            </IconCard>
+          )
+        })}
         {!filtered.length ? <p className="empty">Aucune arme ne correspond à la recherche.</p> : null}
       </div>
     </Panel>

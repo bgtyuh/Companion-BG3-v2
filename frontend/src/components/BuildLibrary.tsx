@@ -25,6 +25,7 @@ const emptyLevel: BuildLevel = {
 export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isFormVisible, setIsFormVisible] = useState(false)
   const [form, setForm] = useState<Omit<Build, 'id'>>({
     name: '',
     race: '',
@@ -33,10 +34,13 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     notes: '',
     levels: [{ ...emptyLevel }],
   })
-  function resetForm() {
+  function resetForm(hideForm = false) {
     setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [{ ...emptyLevel }] })
     setIsEditing(false)
     setSelectedId(null)
+    if (hideForm) {
+      setIsFormVisible(false)
+    }
   }
 
   const raceOptions = useMemo(
@@ -87,7 +91,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     } else {
       await onCreate(payload)
     }
-    resetForm()
+    resetForm(true)
   }
 
   function handleEdit(build: Build) {
@@ -103,6 +107,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     })
     setSelectedId(build.id)
     setIsEditing(true)
+    setIsFormVisible(true)
   }
 
   function updateLevel(index: number, updates: Partial<BuildLevel>) {
@@ -123,16 +128,17 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     }))
   }
 
+  function handleCreateClick() {
+    if (isFormVisible && !isEditing) {
+      resetForm(true)
+      return
+    }
+    resetForm()
+    setIsFormVisible(true)
+  }
+
   return (
-    <Panel
-      title="Concepteur de builds"
-      subtitle="Documentez vos plans de progression niveau par niveau"
-      actions={
-        <button className="link" onClick={resetForm}>
-          Nouveau build
-        </button>
-      }
-    >
+    <Panel title="Concepteur de builds" subtitle="Documentez vos plans de progression niveau par niveau">
       <div className="build-library">
         <div className="build-library__list">
           <ul>
@@ -143,7 +149,15 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   <button className="link" onClick={() => handleEdit(build)}>
                     Modifier
                   </button>
-                  <button className="link link--danger" onClick={() => onDelete(build.id)}>
+                  <button
+                    className="link link--danger"
+                    onClick={() => {
+                      void onDelete(build.id)
+                      if (isEditing && selectedId === build.id) {
+                        resetForm(true)
+                      }
+                    }}
+                  >
                     Supprimer
                   </button>
                 </div>
@@ -151,178 +165,185 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
             ))}
             {!builds.length ? <p className="empty">Enregistrez vos premiers builds pour les proposer à l'équipe.</p> : null}
           </ul>
+          <button type="button" onClick={handleCreateClick} className="build-library__new">
+            + Nouveau build
+          </button>
         </div>
         <div className="build-library__details">
-          <form
-            className="build-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void handleSubmit()
-            }}
-          >
-            <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
-            <div className="form__row">
+          {isFormVisible ? (
+            <form
+              className="build-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSubmit()
+              }}
+            >
+              <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+              <div className="form__row">
+                <label>
+                  Nom du build
+                  <input
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Race conseillée
+                  <select
+                    value={form.race ?? ''}
+                    onChange={(event) =>
+                      setForm((state) => ({
+                        ...state,
+                        race: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">—</option>
+                    {raceOptions.map((race) => (
+                      <optgroup key={race.name} label={race.name}>
+                        <option value={race.name}>{race.name}</option>
+                        {race.subraces.map((subrace) => (
+                          <option key={`${race.name}-${subrace}`} value={subrace}>
+                            {subrace}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {form.race && !knownRaceValues.has(form.race) ? (
+                      <option value={form.race}>{form.race}</option>
+                    ) : null}
+                  </select>
+                </label>
+                <label>
+                  Classe
+                  <select
+                    value={form.class_name ?? ''}
+                    onChange={(event) => {
+                      const nextClass = event.target.value
+                      setForm((state) => ({
+                        ...state,
+                        class_name: nextClass,
+                        subclass: '',
+                      }))
+                    }}
+                  >
+                    <option value="">—</option>
+                    {classOptions.map((className) => (
+                      <option key={className} value={className}>
+                        {className}
+                      </option>
+                    ))}
+                    {form.class_name && !classOptions.includes(form.class_name) ? (
+                      <option value={form.class_name}>{form.class_name}</option>
+                    ) : null}
+                  </select>
+                </label>
+                <label>
+                  Sous-classe
+                  <select
+                    value={form.subclass ?? ''}
+                    onChange={(event) =>
+                      setForm((state) => ({
+                        ...state,
+                        subclass: event.target.value,
+                      }))
+                    }
+                    disabled={!form.class_name}
+                  >
+                    <option value="">—</option>
+                    {subclassOptions.map((subclass) => (
+                      <option key={subclass} value={subclass}>
+                        {subclass}
+                      </option>
+                    ))}
+                    {form.subclass && !subclassOptions.includes(form.subclass) ? (
+                      <option value={form.subclass}>{form.subclass}</option>
+                    ) : null}
+                  </select>
+                </label>
+              </div>
               <label>
-                Nom du build
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+                Notes générales
+                <textarea
+                  rows={3}
+                  value={form.notes ?? ''}
+                  onChange={(event) => setForm((state) => ({ ...state, notes: event.target.value }))}
                 />
               </label>
-              <label>
-                Race conseillée
-                <select
-                  value={form.race ?? ''}
-                  onChange={(event) =>
-                    setForm((state) => ({
-                      ...state,
-                      race: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">—</option>
-                  {raceOptions.map((race) => (
-                    <optgroup key={race.name} label={race.name}>
-                      <option value={race.name}>{race.name}</option>
-                      {race.subraces.map((subrace) => (
-                        <option key={`${race.name}-${subrace}`} value={subrace}>
-                          {subrace}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {form.race && !knownRaceValues.has(form.race) ? (
-                    <option value={form.race}>{form.race}</option>
-                  ) : null}
-                </select>
-              </label>
-              <label>
-                Classe
-                <select
-                  value={form.class_name ?? ''}
-                  onChange={(event) => {
-                    const nextClass = event.target.value
-                    setForm((state) => ({
-                      ...state,
-                      class_name: nextClass,
-                      subclass: '',
-                    }))
-                  }}
-                >
-                  <option value="">—</option>
-                  {classOptions.map((className) => (
-                    <option key={className} value={className}>
-                      {className}
-                    </option>
-                  ))}
-                  {form.class_name && !classOptions.includes(form.class_name) ? (
-                    <option value={form.class_name}>{form.class_name}</option>
-                  ) : null}
-                </select>
-              </label>
-              <label>
-                Sous-classe
-                <select
-                  value={form.subclass ?? ''}
-                  onChange={(event) =>
-                    setForm((state) => ({
-                      ...state,
-                      subclass: event.target.value,
-                    }))
-                  }
-                  disabled={!form.class_name}
-                >
-                  <option value="">—</option>
-                  {subclassOptions.map((subclass) => (
-                    <option key={subclass} value={subclass}>
-                      {subclass}
-                    </option>
-                  ))}
-                  {form.subclass && !subclassOptions.includes(form.subclass) ? (
-                    <option value={form.subclass}>{form.subclass}</option>
-                  ) : null}
-                </select>
-              </label>
-            </div>
-            <label>
-              Notes générales
-              <textarea
-                rows={3}
-                value={form.notes ?? ''}
-                onChange={(event) => setForm((state) => ({ ...state, notes: event.target.value }))}
-              />
-            </label>
-            <div className="build-form__levels">
-              <div className="build-form__levels-header">
-                <h4>Progression par niveau</h4>
-                <button type="button" className="link" onClick={addLevel}>
-                  Ajouter un niveau
-                </button>
-              </div>
-              {form.levels.map((level, index) => (
-                <div key={`${level.level}-${index}`} className="build-form__level">
-                  <label>
-                    Niveau
-                    <select
-                      value={level.level}
-                      onChange={(event) =>
-                        updateLevel(index, { level: Number.parseInt(event.target.value, 10) })
-                      }
-                    >
-                      {abilityLevels.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Sorts / dons de classe
-                    <textarea
-                      rows={2}
-                      value={level.spells ?? ''}
-                      onChange={(event) => updateLevel(index, { spells: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Dons
-                    <textarea
-                      rows={2}
-                      value={level.feats ?? ''}
-                      onChange={(event) => updateLevel(index, { feats: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Spécialisation / multi-classe
-                    <textarea
-                      rows={2}
-                      value={level.subclass_choice ?? level.multiclass_choice ?? ''}
-                      onChange={(event) =>
-                        updateLevel(index, {
-                          subclass_choice: event.target.value,
-                          multiclass_choice: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Note
-                    <textarea
-                      rows={2}
-                      value={level.note ?? ''}
-                      onChange={(event) => updateLevel(index, { note: event.target.value })}
-                    />
-                  </label>
-                  <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>
-                    Retirer ce palier
+              <div className="build-form__levels">
+                <div className="build-form__levels-header">
+                  <h4>Progression par niveau</h4>
+                  <button type="button" className="link" onClick={addLevel}>
+                    Ajouter un niveau
                   </button>
                 </div>
-              ))}
-            </div>
-            <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
-          </form>
+                {form.levels.map((level, index) => (
+                  <div key={`${level.level}-${index}`} className="build-form__level">
+                    <label>
+                      Niveau
+                      <select
+                        value={level.level}
+                        onChange={(event) =>
+                          updateLevel(index, { level: Number.parseInt(event.target.value, 10) })
+                        }
+                      >
+                        {abilityLevels.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Sorts / dons de classe
+                      <textarea
+                        rows={2}
+                        value={level.spells ?? ''}
+                        onChange={(event) => updateLevel(index, { spells: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Dons
+                      <textarea
+                        rows={2}
+                        value={level.feats ?? ''}
+                        onChange={(event) => updateLevel(index, { feats: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Spécialisation / multi-classe
+                      <textarea
+                        rows={2}
+                        value={level.subclass_choice ?? level.multiclass_choice ?? ''}
+                        onChange={(event) =>
+                          updateLevel(index, {
+                            subclass_choice: event.target.value,
+                            multiclass_choice: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Note
+                      <textarea
+                        rows={2}
+                        value={level.note ?? ''}
+                        onChange={(event) => updateLevel(index, { note: event.target.value })}
+                      />
+                    </label>
+                    <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>
+                      Retirer ce palier
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
+            </form>
+          ) : (
+            <p className="empty">Sélectionnez un build pour le modifier ou créez-en un nouveau.</p>
+          )}
         </div>
       </div>
     </Panel>

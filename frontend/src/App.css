@@ -260,7 +260,7 @@ textarea {
 button {
   border-radius: 16px;
   border: 1px solid rgba(248, 180, 34, 0.35);
-  padding: 0.65rem 1.5rem;
+  padding: 0.85rem 1.85rem;
   background: linear-gradient(135deg, rgba(245, 194, 102, 0.95), rgba(248, 180, 34, 0.85));
   color: #0f172a;
   font-weight: 700;

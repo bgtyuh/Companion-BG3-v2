@@ -6,22 +6,23 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = ROOT_DIR / "data"
 
 DATABASE_PATHS: Dict[str, Path] = {
-    "companion": ROOT_DIR / "bg3_companion.db",
-    "armours": ROOT_DIR / "bg3_armours.db",
-    "weapons": ROOT_DIR / "bg3_weapons.db",
-    "spells": ROOT_DIR / "bg3_spells.db",
-    "races": ROOT_DIR / "bg3_races.db",
-    "classes": ROOT_DIR / "bg3_classes.db",
-    "rings": ROOT_DIR / "bg3_rings.db",
-    "amulets": ROOT_DIR / "bg3_amulets.db",
-    "cloaks": ROOT_DIR / "bg3_cloaks.db",
-    "clothing": ROOT_DIR / "bg3_clothing.db",
-    "footwears": ROOT_DIR / "bg3_footwears.db",
-    "handwears": ROOT_DIR / "bg3_handwears.db",
-    "headwears": ROOT_DIR / "bg3_headwears.db",
-    "shields": ROOT_DIR / "bg3_shields.db",
+    "companion": DATA_DIR / "bg3_companion.db",
+    "armours": DATA_DIR / "bg3_armours.db",
+    "weapons": DATA_DIR / "bg3_weapons.db",
+    "spells": DATA_DIR / "bg3_spells.db",
+    "races": DATA_DIR / "bg3_races.db",
+    "classes": DATA_DIR / "bg3_classes.db",
+    "rings": DATA_DIR / "bg3_rings.db",
+    "amulets": DATA_DIR / "bg3_amulets.db",
+    "cloaks": DATA_DIR / "bg3_cloaks.db",
+    "clothing": DATA_DIR / "bg3_clothing.db",
+    "footwears": DATA_DIR / "bg3_footwears.db",
+    "handwears": DATA_DIR / "bg3_handwears.db",
+    "headwears": DATA_DIR / "bg3_headwears.db",
+    "shields": DATA_DIR / "bg3_shields.db",
 }
 
 

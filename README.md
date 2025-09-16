@@ -20,6 +20,7 @@ interface inspirée des fiches de gestion de personnages.
 ```
 backend/         API FastAPI + SQLite (fichiers *.db fournis)
 frontend/        Application React + TypeScript (Vite)
+data/            Bases SQLite utilisées par l'application
 ```
 
 Le front-end consomme les endpoints du back-end (`/api/*`) pour charger les données et persiste les informations propres au joueur
@@ -54,7 +55,7 @@ adresse différente, créez un fichier `frontend/.env` avec la variable `VITE_AP
 
 ## Jeux de données
 
-Les fichiers SQLite fournis à la racine contiennent :
+Les fichiers SQLite fournis dans `data/` contiennent :
 
 - `bg3_armours.db`, `bg3_weapons.db`, `bg3_spells.db`, `bg3_races.db`, `bg3_classes.db` : données encyclopédiques.
 - `bg3_companion.db` : espace d'écriture utilisé par l'application (builds, bestiaire, checklist de butin, etc.).

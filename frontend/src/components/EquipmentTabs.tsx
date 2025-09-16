@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type {
   AmuletItem,
@@ -24,7 +24,7 @@ import { ShieldPanel } from './ShieldPanel'
 import { WeaponPanel } from './WeaponPanel'
 import './equipment-tabs.css'
 
-type EquipmentTabId =
+export type EquipmentTabId =
   | 'armours'
   | 'shields'
   | 'weapons'
@@ -47,6 +47,7 @@ interface EquipmentTabsProps {
   cloaks: CloakItem[]
   rings: RingItem[]
   amulets: AmuletItem[]
+  onTabChange?: (tabId: EquipmentTabId) => void
 }
 
 type TabRefMap = Record<EquipmentTabId, HTMLButtonElement | null>
@@ -62,6 +63,7 @@ export function EquipmentTabs({
   cloaks,
   rings,
   amulets,
+  onTabChange,
 }: EquipmentTabsProps) {
   const [activeTab, setActiveTab] = useState<EquipmentTabId>('armours')
   const idPrefix = useId()
@@ -141,6 +143,10 @@ export function EquipmentTabs({
   function selectTab(tabId: EquipmentTabId) {
     setActiveTab(tabId)
   }
+
+  useEffect(() => {
+    onTabChange?.(activeTab)
+  }, [activeTab, onTabChange])
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     switch (event.key) {

@@ -18,8 +18,47 @@ import type {
   WeaponItem,
 } from './types'
 
-const rawBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
+const FALLBACK_DEV_PORTS = new Set(['5173', '4173'])
+const DEFAULT_DEV_API_PORT = '8000'
+
+// Lorsque l'application tourne via le serveur de développement ou l'aperçu Vite,
+// le front est servi respectivement sur les ports 5173 et 4173. Si l'URL de
+// l'API n'est pas configurée explicitement, nous essayons automatiquement le
+// même hôte sur le port 8000 pour faciliter la configuration locale.
+
+function resolveApiBaseUrl(): string {
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (typeof envBaseUrl === 'string' && envBaseUrl.trim().length > 0) {
+    return envBaseUrl.trim()
+  }
+
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const { href, origin, protocol, host } = window.location
+
+  try {
+    const currentUrl = new URL(href)
+    if (currentUrl.port && FALLBACK_DEV_PORTS.has(currentUrl.port)) {
+      currentUrl.port = DEFAULT_DEV_API_PORT
+      currentUrl.pathname = ''
+      currentUrl.search = ''
+      currentUrl.hash = ''
+      return currentUrl.origin
+    }
+  } catch {
+    // ignore parsing issues and fall back to the origin below
+  }
+
+  if (origin) {
+    return origin
+  }
+
+  return `${protocol}//${host}`
+}
+
+const rawBaseUrl = resolveApiBaseUrl()
 const API_BASE_URL = rawBaseUrl.replace(/\/$/, '')
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

@@ -915,6 +915,25 @@ button:focus-visible {
 .icon-grid__label {
   text-align: center;
   font-size: 0.95rem;
+  line-height: 1.25;
+  min-height: calc(1.25em * 3);
+  max-height: calc(1.25em * 3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.icon-grid__label-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  max-height: 100%;
+  width: 100%;
+  word-break: break-word;
+  text-overflow: ellipsis;
 }
 
 .icon-grid__tooltip {

@@ -964,6 +964,16 @@ button:focus-visible {
   align-items: stretch;
 }
 
+.bestiary__controls {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bestiary__controls input {
+  width: 100%;
+  max-width: 320px;
+}
+
 .bestiary__list,
 .bestiary__details {
   min-width: 0;

@@ -92,20 +92,16 @@ export function BestiaryPanel({ enemies, onCreate, onUpdate, onDelete }: Bestiar
   }
 
   return (
-    <Panel
-      title="Bestiaire"
-      subtitle="Préparez-vous face aux menaces majeures"
-      collapsible
-      actions={
-        <input
-          type="search"
-          placeholder="Rechercher un ennemi"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      }
-    >
+    <Panel title="Bestiaire" subtitle="Préparez-vous face aux menaces majeures" collapsible>
       <div className="bestiary">
+        <div className="bestiary__controls">
+          <input
+            type="search"
+            placeholder="Rechercher un ennemi"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         <div className="bestiary__list">
           <ul>
             {filteredEnemies.map((enemy) => (

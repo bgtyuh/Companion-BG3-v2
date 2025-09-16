@@ -178,7 +178,17 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                 void handleSubmit()
               }}
             >
-              <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+              <div className="build-form__header">
+                <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+                <button
+                  type="button"
+                  className="build-form__close"
+                  onClick={() => resetForm(true)}
+                  aria-label="Fermer le formulaire de build"
+                >
+                  ×
+                </button>
+              </div>
               <div className="form__row">
                 <label>
                   Nom du build

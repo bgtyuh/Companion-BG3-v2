@@ -283,7 +283,7 @@ button:focus-visible {
 .link {
   border: none;
   background: none;
-  padding: 0;
+  padding: 0.35rem 0.85rem;
   color: var(--color-accent);
   cursor: pointer;
   font-weight: 700;

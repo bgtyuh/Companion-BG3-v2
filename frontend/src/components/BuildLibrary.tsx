@@ -20,21 +20,35 @@ const emptyLevel: BuildLevel = {
   note: '',
 }
 
-export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [form, setForm] = useState<Omit<Build, 'id'>>({
+function createEmptyForm(): Omit<Build, 'id'> {
+  return {
     name: '',
     race: '',
     class_name: '',
     subclass: '',
     notes: '',
     levels: [{ ...emptyLevel }],
-  })
-  function resetForm() {
-    setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [{ ...emptyLevel }] })
+  }
+}
+
+export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isFormVisible, setIsFormVisible] = useState(false)
+  const [form, setForm] = useState<Omit<Build, 'id'>>(createEmptyForm)
+
+  function startCreate() {
+    setForm(createEmptyForm())
     setIsEditing(false)
     setSelectedId(null)
+    setIsFormVisible(true)
+  }
+
+  function resetForm() {
+    setForm(createEmptyForm())
+    setIsEditing(false)
+    setSelectedId(null)
+    setIsFormVisible(false)
   }
 
   async function handleSubmit() {
@@ -74,6 +88,7 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
     })
     setSelectedId(build.id)
     setIsEditing(true)
+    setIsFormVisible(true)
   }
 
   function updateLevel(index: number, updates: Partial<BuildLevel>) {
@@ -95,15 +110,7 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
   }
 
   return (
-    <Panel
-      title="Concepteur de builds"
-      subtitle="Documentez vos plans de progression niveau par niveau"
-      actions={
-        <button className="link" onClick={resetForm}>
-          Nouveau build
-        </button>
-      }
-    >
+    <Panel title="Concepteur de builds" subtitle="Documentez vos plans de progression niveau par niveau">
       <div className="build-library">
         <div className="build-library__list">
           <ul>
@@ -122,128 +129,137 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
             ))}
             {!builds.length ? <p className="empty">Enregistrez vos premiers builds pour les proposer à l'équipe.</p> : null}
           </ul>
+          <button type="button" className="link build-library__new" onClick={startCreate}>
+            + Nouveau build
+          </button>
         </div>
         <div className="build-library__details">
-          <form
-            className="build-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void handleSubmit()
-            }}
-          >
-            <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
-            <div className="form__row">
-              <label>
-                Nom du build
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
-                />
-              </label>
-              <label>
-                Race conseillée
-                <input
-                  type="text"
-                  value={form.race ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, race: event.target.value }))}
-                />
-              </label>
-              <label>
-                Classe
-                <input
-                  type="text"
-                  value={form.class_name ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, class_name: event.target.value }))}
-                />
-              </label>
-              <label>
-                Sous-classe
-                <input
-                  type="text"
-                  value={form.subclass ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, subclass: event.target.value }))}
-                />
-              </label>
-            </div>
-            <label>
-              Notes générales
-              <textarea
-                rows={3}
-                value={form.notes ?? ''}
-                onChange={(event) => setForm((state) => ({ ...state, notes: event.target.value }))}
-              />
-            </label>
-            <div className="build-form__levels">
-              <div className="build-form__levels-header">
-                <h4>Progression par niveau</h4>
-                <button type="button" className="link" onClick={addLevel}>
-                  Ajouter un niveau
-                </button>
+          {isFormVisible ? (
+            <form
+              className="build-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSubmit()
+              }}
+            >
+              <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+              <div className="form__row">
+                <label>
+                  Nom du build
+                  <input
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Race conseillée
+                  <input
+                    type="text"
+                    value={form.race ?? ''}
+                    onChange={(event) => setForm((state) => ({ ...state, race: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Classe
+                  <input
+                    type="text"
+                    value={form.class_name ?? ''}
+                    onChange={(event) => setForm((state) => ({ ...state, class_name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Sous-classe
+                  <input
+                    type="text"
+                    value={form.subclass ?? ''}
+                    onChange={(event) => setForm((state) => ({ ...state, subclass: event.target.value }))}
+                  />
+                </label>
               </div>
-              {form.levels.map((level, index) => (
-                <div key={`${level.level}-${index}`} className="build-form__level">
-                  <label>
-                    Niveau
-                    <select
-                      value={level.level}
-                      onChange={(event) =>
-                        updateLevel(index, { level: Number.parseInt(event.target.value, 10) })
-                      }
-                    >
-                      {abilityLevels.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Sorts / dons de classe
-                    <textarea
-                      rows={2}
-                      value={level.spells ?? ''}
-                      onChange={(event) => updateLevel(index, { spells: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Dons
-                    <textarea
-                      rows={2}
-                      value={level.feats ?? ''}
-                      onChange={(event) => updateLevel(index, { feats: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Spécialisation / multi-classe
-                    <textarea
-                      rows={2}
-                      value={level.subclass_choice ?? level.multiclass_choice ?? ''}
-                      onChange={(event) =>
-                        updateLevel(index, {
-                          subclass_choice: event.target.value,
-                          multiclass_choice: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Note
-                    <textarea
-                      rows={2}
-                      value={level.note ?? ''}
-                      onChange={(event) => updateLevel(index, { note: event.target.value })}
-                    />
-                  </label>
-                  <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>
-                    Retirer ce palier
+              <label>
+                Notes générales
+                <textarea
+                  rows={3}
+                  value={form.notes ?? ''}
+                  onChange={(event) => setForm((state) => ({ ...state, notes: event.target.value }))}
+                />
+              </label>
+              <div className="build-form__levels">
+                <div className="build-form__levels-header">
+                  <h4>Progression par niveau</h4>
+                  <button type="button" className="link" onClick={addLevel}>
+                    Ajouter un niveau
                   </button>
                 </div>
-              ))}
-            </div>
-            <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
-          </form>
+                {form.levels.map((level, index) => (
+                  <div key={`${level.level}-${index}`} className="build-form__level">
+                    <label>
+                      Niveau
+                      <select
+                        value={level.level}
+                        onChange={(event) =>
+                          updateLevel(index, { level: Number.parseInt(event.target.value, 10) })
+                        }
+                      >
+                        {abilityLevels.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Sorts / dons de classe
+                      <textarea
+                        rows={2}
+                        value={level.spells ?? ''}
+                        onChange={(event) => updateLevel(index, { spells: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Dons
+                      <textarea
+                        rows={2}
+                        value={level.feats ?? ''}
+                        onChange={(event) => updateLevel(index, { feats: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Spécialisation / multi-classe
+                      <textarea
+                        rows={2}
+                        value={level.subclass_choice ?? level.multiclass_choice ?? ''}
+                        onChange={(event) =>
+                          updateLevel(index, {
+                            subclass_choice: event.target.value,
+                            multiclass_choice: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Note
+                      <textarea
+                        rows={2}
+                        value={level.note ?? ''}
+                        onChange={(event) => updateLevel(index, { note: event.target.value })}
+                      />
+                    </label>
+                    <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>
+                      Retirer ce palier
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
+            </form>
+          ) : (
+            <p className="empty">
+              Sélectionnez un build pour le modifier ou cliquez sur « + Nouveau build » pour en créer un.
+            </p>
+          )}
         </div>
       </div>
     </Panel>

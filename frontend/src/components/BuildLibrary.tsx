@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import type { Build, BuildLevel } from '../types'
+import { useMemo, useState } from 'react'
+import type { Build, BuildLevel, CharacterClass, Race } from '../types'
 import { Panel } from './Panel'
 
 interface BuildLibraryProps {
   builds: Build[]
+  races: Race[]
+  classes: CharacterClass[]
   onCreate: (build: Omit<Build, 'id'>) => Promise<void>
   onUpdate: (id: number, build: Omit<Build, 'id'>) => Promise<void>
   onDelete: (id: number) => Promise<void>
@@ -20,7 +22,7 @@ const emptyLevel: BuildLevel = {
   note: '',
 }
 
-export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
+export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState<Omit<Build, 'id'>>({
@@ -36,6 +38,33 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
     setIsEditing(false)
     setSelectedId(null)
   }
+
+  const raceOptions = useMemo(
+    () =>
+      races.map((race) => ({
+        name: race.name,
+        subraces: (race.subraces ?? []).map((subrace) => subrace.name),
+      })),
+    [races],
+  )
+
+  const knownRaceValues = useMemo(() => {
+    const values = new Set<string>()
+    for (const race of raceOptions) {
+      values.add(race.name)
+      for (const subrace of race.subraces) {
+        values.add(subrace)
+      }
+    }
+    return values
+  }, [raceOptions])
+
+  const classOptions = useMemo(() => classes.map((klass) => klass.name), [classes])
+
+  const subclassOptions = useMemo(() => {
+    if (!form.class_name) return []
+    return classes.find((klass) => klass.name === form.class_name)?.subclasses.map((entry) => entry.name) ?? []
+  }, [classes, form.class_name])
 
   async function handleSubmit() {
     const payload: Omit<Build, 'id'> = {
@@ -144,27 +173,77 @@ export function BuildLibrary({ builds, onCreate, onUpdate, onDelete }: BuildLibr
               </label>
               <label>
                 Race conseillée
-                <input
-                  type="text"
+                <select
                   value={form.race ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, race: event.target.value }))}
-                />
+                  onChange={(event) =>
+                    setForm((state) => ({
+                      ...state,
+                      race: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">—</option>
+                  {raceOptions.map((race) => (
+                    <optgroup key={race.name} label={race.name}>
+                      <option value={race.name}>{race.name}</option>
+                      {race.subraces.map((subrace) => (
+                        <option key={`${race.name}-${subrace}`} value={subrace}>
+                          {subrace}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {form.race && !knownRaceValues.has(form.race) ? (
+                    <option value={form.race}>{form.race}</option>
+                  ) : null}
+                </select>
               </label>
               <label>
                 Classe
-                <input
-                  type="text"
+                <select
                   value={form.class_name ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, class_name: event.target.value }))}
-                />
+                  onChange={(event) => {
+                    const nextClass = event.target.value
+                    setForm((state) => ({
+                      ...state,
+                      class_name: nextClass,
+                      subclass: '',
+                    }))
+                  }}
+                >
+                  <option value="">—</option>
+                  {classOptions.map((className) => (
+                    <option key={className} value={className}>
+                      {className}
+                    </option>
+                  ))}
+                  {form.class_name && !classOptions.includes(form.class_name) ? (
+                    <option value={form.class_name}>{form.class_name}</option>
+                  ) : null}
+                </select>
               </label>
               <label>
                 Sous-classe
-                <input
-                  type="text"
+                <select
                   value={form.subclass ?? ''}
-                  onChange={(event) => setForm((state) => ({ ...state, subclass: event.target.value }))}
-                />
+                  onChange={(event) =>
+                    setForm((state) => ({
+                      ...state,
+                      subclass: event.target.value,
+                    }))
+                  }
+                  disabled={!form.class_name}
+                >
+                  <option value="">—</option>
+                  {subclassOptions.map((subclass) => (
+                    <option key={subclass} value={subclass}>
+                      {subclass}
+                    </option>
+                  ))}
+                  {form.subclass && !subclassOptions.includes(form.subclass) ? (
+                    <option value={form.subclass}>{form.subclass}</option>
+                  ) : null}
+                </select>
               </label>
             </div>
             <label>

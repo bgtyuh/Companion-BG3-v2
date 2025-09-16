@@ -9,13 +9,14 @@
   gap: 1.2rem;
   backdrop-filter: blur(calc(var(--blur-strength) * 0.55));
   box-shadow: 0 22px 45px rgba(4, 10, 30, 0.45);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .panel::before {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: linear-gradient(120deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   pointer-events: none;
 }

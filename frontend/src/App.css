@@ -876,8 +876,9 @@ button:focus-visible {
 
 .icon-grid__tooltip {
   position: absolute;
-  inset: auto auto 1rem 50%;
-  transform: translateX(-50%) translateY(10px);
+  top: calc(100% + 0.75rem);
+  left: 50%;
+  transform: translate(-50%, -8px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -895,7 +896,7 @@ button:focus-visible {
 .icon-grid__item:focus-visible .icon-grid__tooltip,
 .icon-grid__item:hover .icon-grid__tooltip {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .icon-grid__tooltip-content {
@@ -1018,7 +1019,8 @@ button:focus-visible {
     'character armour armour armour'
     'character handwear ring1 ring2'
     'character handwear mainHand offHand'
-    'character footwear clothing clothing';
+    'character footwear clothing clothing'
+    'character ranged ranged ranged';
   padding: 1.5rem;
   border-radius: 24px;
   background: rgba(12, 23, 42, 0.7);

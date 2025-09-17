@@ -122,6 +122,7 @@ class Armour(BaseModel):
     weight_kg: Optional[float] = None
     weight_lb: Optional[float] = None
     price_gp: Optional[float] = None
+    image_path: Optional[str] = None
     armour_class_base: Optional[int] = None
     armour_class_modifier: Optional[str] = None
     locations: List[ArmourLocation] = Field(default_factory=list)
@@ -138,6 +139,7 @@ class AccessoryBase(BaseModel):
     weight_kg: Optional[float] = None
     weight_lb: Optional[float] = None
     price_gp: Optional[float] = None
+    image_path: Optional[str] = None
     locations: List[ArmourLocation] = Field(default_factory=list)
     specials: List[ArmourSpecial] = Field(default_factory=list)
 
@@ -216,6 +218,7 @@ class Weapon(BaseModel):
     range_m: Optional[float] = None
     range_f: Optional[float] = None
     attributes: Optional[str] = None
+    image_path: Optional[str] = None
     damages: List[WeaponDamage] = Field(default_factory=list)
     actions: List[WeaponAction] = Field(default_factory=list)
     abilities: List[WeaponAbility] = Field(default_factory=list)
@@ -233,6 +236,7 @@ class Spell(BaseModel):
     level: Optional[str] = None
     school: Optional[str] = None
     description: Optional[str] = None
+    image_path: Optional[str] = None
     properties: List[SpellProperty] = Field(default_factory=list)
 
 

@@ -57,6 +57,7 @@ export interface ArmourItem {
   weight_kg?: number | null
   weight_lb?: number | null
   price_gp?: number | null
+  image_path?: string | null
   armour_class_base?: number | null
   armour_class_modifier?: string | null
   locations: ArmourLocation[]
@@ -76,6 +77,7 @@ export interface AccessoryItemBase {
   weight_kg?: number | null
   weight_lb?: number | null
   price_gp?: number | null
+  image_path?: string | null
   locations: AccessoryLocation[]
   specials: AccessorySpecial[]
 }
@@ -144,6 +146,7 @@ export interface WeaponItem {
   range_m?: number | null
   range_f?: number | null
   attributes?: string | null
+  image_path?: string | null
   damages: WeaponDamage[]
   actions: WeaponAction[]
   abilities: WeaponAbility[]
@@ -161,6 +164,7 @@ export interface Spell {
   level?: string | null
   school?: string | null
   description?: string | null
+  image_path?: string | null
   properties: SpellProperty[]
 }
 

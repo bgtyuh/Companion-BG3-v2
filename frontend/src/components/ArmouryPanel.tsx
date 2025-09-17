@@ -60,7 +60,11 @@ export function ArmouryPanel({ armours }: ArmouryPanelProps) {
           const location = item.locations[0]?.description
 
           return (
-            <IconCard key={item.item_id} name={item.name} iconUrl={getIconUrl('armour', item.name)}>
+            <IconCard
+              key={item.item_id}
+              name={item.name}
+              iconUrl={getIconUrl('armour', item.name, item.image_path)}
+            >
               <div className="icon-grid__tooltip-meta">
                 {item.type ? (
                   <span>

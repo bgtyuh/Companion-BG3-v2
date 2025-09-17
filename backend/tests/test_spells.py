@@ -16,7 +16,8 @@ def spells_db(tmp_path, monkeypatch: pytest.MonkeyPatch):
             CREATE TABLE Spells (
                 name TEXT PRIMARY KEY,
                 level TEXT,
-                description TEXT
+                description TEXT,
+                image_path TEXT
             )
             """
         )
@@ -33,19 +34,21 @@ def spells_db(tmp_path, monkeypatch: pytest.MonkeyPatch):
         )
         conn.executemany(
             """
-            INSERT INTO Spells (name, level, description)
-            VALUES (?, ?, ?)
+            INSERT INTO Spells (name, level, description, image_path)
+            VALUES (?, ?, ?, ?)
             """,
             [
                 (
                     "Magic Missile",
                     "1",
                     "Magic Missile is a level 1 evocation spell that conjures bolts of magical force.",
+                    "spell_images/Magic_Missile.png",
                 ),
                 (
                     "Fireball",
                     "3",
                     "Fireball is a level 3 evocation spell that engulfs an area in roaring flames.",
+                    "spell_images/Fireball.png",
                 ),
             ],
         )
@@ -86,6 +89,7 @@ def test_list_spells_returns_spells_with_properties(spells_db, client):
     assert magic_missile["level"] == "1"
     assert magic_missile["school"] == "Evocation"
     assert "bolts of magical force" in (magic_missile.get("description") or "").lower()
+    assert magic_missile.get("image_path") == "spell_images/Magic_Missile.png"
     assert _properties_by_name(magic_missile) == {
         "Casting Time": "1 action",
         "Range": "120 feet",
@@ -95,6 +99,7 @@ def test_list_spells_returns_spells_with_properties(spells_db, client):
     assert fireball["level"] == "3"
     assert fireball["school"] == "Evocation"
     assert "roaring flames" in (fireball.get("description") or "").lower()
+    assert fireball.get("image_path") == "spell_images/Fireball.png"
     assert _properties_by_name(fireball) == {
         "Area": "20-foot-radius sphere",
         "Saving Throw": "DEX",

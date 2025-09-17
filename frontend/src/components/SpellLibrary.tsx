@@ -89,7 +89,11 @@ export function SpellLibrary({ spells }: SpellLibraryProps) {
           const levelLabel = getSpellLevelLabel(spell.level)
           const levelTitle = levelLabel === 'Cantrips' ? 'Type :' : 'Niveau :'
           return (
-            <IconCard key={spell.name} name={spell.name} iconUrl={getIconUrl('spell', spell.name)}>
+            <IconCard
+              key={spell.name}
+              name={spell.name}
+              iconUrl={getIconUrl('spell', spell.name, spell.image_path)}
+            >
               <div className="icon-grid__tooltip-meta">
                 {levelLabel ? (
                   <span>

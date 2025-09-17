@@ -96,7 +96,11 @@ export function AccessoryPanel<T extends AccessoryItemBase>({
           const extraDetail = renderDetails ? renderDetails(item) : null
 
           return (
-            <IconCard key={item.item_id} name={item.name} iconUrl={getIconUrl(iconCategory, item.name)}>
+            <IconCard
+              key={item.item_id}
+              name={item.name}
+              iconUrl={getIconUrl(iconCategory, item.name, item.image_path)}
+            >
               <div className="icon-grid__tooltip-meta">
                 {item.type ? (
                   <span>

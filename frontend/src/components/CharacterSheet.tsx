@@ -99,18 +99,24 @@ function resolveIconUrl(
   entry: EquipmentEntry | null,
   preferredCategories: IconCategory[],
 ) {
-  if (!name) return null
   const categories = entry
     ? [entry.category, ...preferredCategories.filter((category) => category !== entry.category)]
     : preferredCategories
+
   for (const category of categories) {
-    const url = getIconUrl(category, name)
+    const url = getIconUrl(category, name, entry?.item.image_path)
     if (url) return url
+    if (entry && entry.item.name && entry.item.name !== name) {
+      const fallback = getIconUrl(category, entry.item.name, entry.item.image_path)
+      if (fallback) return fallback
+    }
   }
+
   if (entry) {
-    const url = getIconUrl(entry.category, name)
+    const url = getIconUrl(entry.category, entry.item.name, entry.item.image_path)
     if (url) return url
   }
+
   return null
 }
 
@@ -574,7 +580,11 @@ export function CharacterSheet({
         {knownSpells.length ? (
           <div className="icon-grid character-sheet__spell-grid">
             {knownSpells.map((spell) => (
-              <IconCard key={spell.name} name={spell.name} iconUrl={getIconUrl('spell', spell.name)}>
+            <IconCard
+              key={spell.name}
+              name={spell.name}
+              iconUrl={getIconUrl('spell', spell.name, spell.image_path)}
+            >
                 {renderSpellTooltip(spell)}
               </IconCard>
             ))}

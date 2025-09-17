@@ -511,6 +511,7 @@ def _list_equipment(
             "weight_kg": item.get("weight_kg"),
             "weight_lb": item.get("weight_lb"),
             "price_gp": item.get("price_gp"),
+            "image_path": item.get("image_path"),
             "locations": location_map.get(item["item_id"], []),
             "specials": special_map.get(item["item_id"], []),
         }
@@ -654,6 +655,7 @@ def list_weapons() -> List[schemas.Weapon]:
                 range_m=weapon.get("range_m"),
                 range_f=weapon.get("range_f"),
                 attributes=weapon.get("attributes"),
+                image_path=weapon.get("image_path"),
                 damages=damage_map.get(weapon["weapon_id"], []),
                 actions=action_map.get(weapon["weapon_id"], []),
                 abilities=ability_map.get(weapon["weapon_id"], []),
@@ -678,7 +680,7 @@ def list_spells() -> List[schemas.Spell]:
     spells = fetch_all(
         "spells",
         """
-        SELECT name, level, description
+        SELECT name, level, description, image_path
         FROM Spells
         ORDER BY name COLLATE NOCASE
         """,
@@ -704,6 +706,7 @@ def list_spells() -> List[schemas.Spell]:
             level=row.get("level"),
             school=_infer_spell_school(row.get("description")),
             description=row.get("description"),
+            image_path=row.get("image_path"),
             properties=prop_map.get(row["name"], []),
         )
         for row in spells

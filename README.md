@@ -43,9 +43,9 @@ Depuis `frontend/` :
 
 1. **Préparer l'API**
    ```bash
-   cd backend
+   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/backend"
    python -m venv .venv
-   source .venv/bin/activate  # Sous Windows : .venv\Scripts\activate
+   .venv\Scripts\activate
    pip install -r requirements.txt
    uvicorn backend.app.main:app --reload
    ```
@@ -53,7 +53,7 @@ Depuis `frontend/` :
 
 2. **Préparer le front**
    ```bash
-   cd frontend
+   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/frontend"
    npm install
    npm run dev
    ```
@@ -64,7 +64,7 @@ d'exécution.
 
 - **Front-end**
   ```bash
-  cd frontend
+  cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/frontend"
   npm install
   npm run build
   ```

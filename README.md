@@ -46,7 +46,7 @@ Depuis `frontend/` :
    cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2"
    python -m venv .venv
    .venv\Scripts\activate
-   pip install -r requirements.txt
+   pip install -r backend\requirements.txt
    uvicorn backend.app.main:app --reload
    ```
    L'API écoute sur http://127.0.0.1:8000 et expose la documentation sur `/docs`.

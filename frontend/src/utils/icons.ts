@@ -11,6 +11,40 @@ function normalizeName(value: string) {
     .replace(/(^-|-$)/g, '')
 }
 
+function normalizeIconPath(value: string | null | undefined) {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const sanitized = trimmed
+    .replace(/\\/g, '/')
+    .replace(/^(\.{1,2}\/)+/, '')
+    .replace(/^\/{1,}/, '')
+    .replace(/\/{2,}/g, '/')
+
+  if (!sanitized) return null
+
+  const lower = sanitized.toLowerCase()
+  const ressourcesNeedle = 'ressources/icons/'
+  const iconsNeedle = 'icons/'
+
+  let relative = sanitized
+  const ressourcesIndex = lower.lastIndexOf(ressourcesNeedle)
+  if (ressourcesIndex >= 0) {
+    relative = sanitized.slice(ressourcesIndex + ressourcesNeedle.length)
+  } else {
+    const iconsIndex = lower.lastIndexOf(iconsNeedle)
+    if (iconsIndex >= 0) {
+      relative = sanitized.slice(iconsIndex + iconsNeedle.length)
+    }
+  }
+
+  relative = relative.replace(/^\/{1,}/, '')
+  if (!relative) return null
+
+  return relative.toLowerCase()
+}
+
 function safeDecode(value: string) {
   try {
     return decodeURIComponent(value)
@@ -79,10 +113,22 @@ function generateNameVariants(fileName: string) {
   return variants
 }
 
-function createIconMap(glob: Record<string, unknown>) {
-  const map = new Map<string, string>()
+interface IconLookup {
+  byName: Map<string, string>
+  byPath: Map<string, string>
+}
+
+function createIconLookup(glob: Record<string, unknown>): IconLookup {
+  const byName = new Map<string, string>()
+  const byPath = new Map<string, string>()
   for (const [filePath, url] of Object.entries(glob)) {
     if (typeof url !== 'string') continue
+
+    const normalizedPath = normalizeIconPath(filePath)
+    if (normalizedPath && !byPath.has(normalizedPath)) {
+      byPath.set(normalizedPath, url)
+    }
+
     const segments = filePath.split('/')
     const fileWithExtension = segments[segments.length - 1] ?? filePath
     const fileName = fileWithExtension.replace(/\.[^/.]+$/, '')
@@ -90,12 +136,12 @@ function createIconMap(glob: Record<string, unknown>) {
     for (const variant of variants) {
       const key = normalizeName(variant)
       if (!key) continue
-      if (!map.has(key)) {
-        map.set(key, url)
+      if (!byName.has(key)) {
+        byName.set(key, url)
       }
     }
   }
-  return map
+  return { byName, byPath }
 }
 
 const weaponIcons = import.meta
@@ -146,31 +192,54 @@ type IconCategory =
   | 'race'
   | 'background'
 
-type IconMap = Record<IconCategory, Map<string, string>>
+type IconMap = Record<IconCategory, IconLookup>
 
 const iconMaps: IconMap = {
-  weapon: createIconMap(weaponIcons),
-  armour: createIconMap(armourIcons),
-  shield: createIconMap(shieldIcons),
-  clothing: createIconMap(clothingIcons),
-  headwear: createIconMap(headwearIcons),
-  handwear: createIconMap(handwearIcons),
-  footwear: createIconMap(footwearIcons),
-  cloak: createIconMap(cloakIcons),
-  ring: createIconMap(ringIcons),
-  amulet: createIconMap(amuletIcons),
-  spell: createIconMap(spellIcons),
-  ability: createIconMap(abilityIcons),
-  class: createIconMap(classIcons),
-  race: createIconMap(raceIcons),
-  background: createIconMap(backgroundIcons),
+  weapon: createIconLookup(weaponIcons),
+  armour: createIconLookup(armourIcons),
+  shield: createIconLookup(shieldIcons),
+  clothing: createIconLookup(clothingIcons),
+  headwear: createIconLookup(headwearIcons),
+  handwear: createIconLookup(handwearIcons),
+  footwear: createIconLookup(footwearIcons),
+  cloak: createIconLookup(cloakIcons),
+  ring: createIconLookup(ringIcons),
+  amulet: createIconLookup(amuletIcons),
+  spell: createIconLookup(spellIcons),
+  ability: createIconLookup(abilityIcons),
+  class: createIconLookup(classIcons),
+  race: createIconLookup(raceIcons),
+  background: createIconLookup(backgroundIcons),
 }
 
-export function getIconUrl(category: IconCategory, name: string | null | undefined) {
+const globalPathIndex = new Map<string, string>()
+for (const lookup of Object.values(iconMaps)) {
+  for (const [path, url] of lookup.byPath) {
+    if (!globalPathIndex.has(path)) {
+      globalPathIndex.set(path, url)
+    }
+  }
+}
+
+export function getIconUrl(
+  category: IconCategory,
+  name: string | null | undefined,
+  imagePath?: string | null | undefined,
+) {
+  const lookup = iconMaps[category]
+  if (!lookup) return null
+
+  const normalizedPath = normalizeIconPath(imagePath)
+  if (normalizedPath) {
+    const pathMatch = lookup.byPath.get(normalizedPath) ?? globalPathIndex.get(normalizedPath)
+    if (pathMatch) {
+      return pathMatch
+    }
+  }
+
   if (!name) return null
   const normalized = normalizeName(name)
-  const iconMap = iconMaps[category]
-  return iconMap.get(normalized) ?? null
+  return lookup.byName.get(normalized) ?? null
 }
 
 export { normalizeName }

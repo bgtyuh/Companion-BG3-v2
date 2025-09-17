@@ -62,7 +62,11 @@ export function WeaponPanel({ weapons }: WeaponPanelProps) {
           const location = item.locations[0]?.description
 
           return (
-            <IconCard key={item.weapon_id} name={item.name} iconUrl={getIconUrl('weapon', item.name)}>
+            <IconCard
+              key={item.weapon_id}
+              name={item.name}
+              iconUrl={getIconUrl('weapon', item.name, item.image_path)}
+            >
               <div className="icon-grid__tooltip-meta">
                 {item.type ? (
                   <span>

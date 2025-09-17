@@ -17,6 +17,7 @@ import type {
 } from '../types'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { getIconUrl, normalizeName, type IconCategory } from '../utils/icons'
+import { getProgressionHighlights } from '../utils/progression'
 import { getSpellLevelLabel, sortSpellsByLevel } from '../utils/spells'
 import { IconCard } from './IconCard'
 import { Panel } from './Panel'
@@ -605,24 +606,32 @@ export function CharacterSheet({
         <section className="character-sheet__progression">
           <h4>Table de progression : {classInfo.name}</h4>
           <div className="progression-table">
-            {classInfo.progression.map((entry) => (
-              <div key={entry.level} className={entry.level === nextLevel ? 'progression-table__row progression-table__row--active' : 'progression-table__row'}>
-                <div>
-                  <strong>Niveau {entry.level}</strong>
-                </div>
-                <div>
-                  <strong>Bonus de maîtrise :</strong> {entry.proficiency_bonus || '—'}
-                </div>
-                <div>
-                  <strong>Traits :</strong> {entry.features || '—'}
-                </div>
-                {entry.spell_slots_1st ? (
+            {classInfo.progression.map((entry) => {
+              const progressionHighlights = getProgressionHighlights(entry)
+
+              return (
+                <div
+                  key={entry.level}
+                  className={
+                    entry.level === nextLevel
+                      ? 'progression-table__row progression-table__row--active'
+                      : 'progression-table__row'
+                  }
+                >
                   <div>
-                    <strong>Emplacements :</strong> {entry.spell_slots_per_level || '1er:' + entry.spell_slots_1st}
+                    <strong>Niveau {entry.level}</strong>
                   </div>
-                ) : null}
-              </div>
-            ))}
+                  <div>
+                    <strong>Traits :</strong> {entry.features || '—'}
+                  </div>
+                  {progressionHighlights.map((highlight) => (
+                    <div key={highlight.label}>
+                      <strong>{highlight.label} :</strong> {highlight.value}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         </section>
       ) : null}

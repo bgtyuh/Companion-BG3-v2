@@ -885,7 +885,7 @@ button:focus-visible {
 .icon-grid__item:hover {
   transform: translateY(-2px);
   box-shadow: 0 16px 32px rgba(5, 12, 30, 0.45);
-  z-index: 20;
+  z-index: 80;
 }
 
 .icon-grid__image {
@@ -952,7 +952,7 @@ button:focus-visible {
   box-shadow: 0 24px 40px rgba(4, 10, 30, 0.55);
   padding: 1rem 1.2rem;
   color: var(--color-text-secondary);
-  z-index: 10;
+  z-index: 60;
 }
 
 .icon-grid__item:focus-visible .icon-grid__tooltip,

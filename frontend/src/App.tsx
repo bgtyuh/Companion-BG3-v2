@@ -55,52 +55,42 @@ function App() {
   const armoursQuery = useQuery({
     queryKey: ['armours'],
     queryFn: async () => sortByName(await api.getArmours()),
-    enabled: false,
   })
   const ringsQuery = useQuery({
     queryKey: ['rings'],
     queryFn: async () => sortByName(await api.getRings()),
-    enabled: false,
   })
   const amuletsQuery = useQuery({
     queryKey: ['amulets'],
     queryFn: async () => sortByName(await api.getAmulets()),
-    enabled: false,
   })
   const cloaksQuery = useQuery({
     queryKey: ['cloaks'],
     queryFn: async () => sortByName(await api.getCloaks()),
-    enabled: false,
   })
   const clothingQuery = useQuery({
     queryKey: ['clothing'],
     queryFn: async () => sortByName(await api.getClothing()),
-    enabled: false,
   })
   const footwearsQuery = useQuery({
     queryKey: ['footwears'],
     queryFn: async () => sortByName(await api.getFootwears()),
-    enabled: false,
   })
   const handwearsQuery = useQuery({
     queryKey: ['handwears'],
     queryFn: async () => sortByName(await api.getHandwears()),
-    enabled: false,
   })
   const headwearsQuery = useQuery({
     queryKey: ['headwears'],
     queryFn: async () => sortByName(await api.getHeadwears()),
-    enabled: false,
   })
   const shieldsQuery = useQuery({
     queryKey: ['shields'],
     queryFn: async () => sortByName(await api.getShields()),
-    enabled: false,
   })
   const weaponsQuery = useQuery({
     queryKey: ['weapons'],
     queryFn: async () => sortByName(await api.getWeapons()),
-    enabled: false,
   })
   const spellsQuery = useQuery({
     queryKey: ['spells'],

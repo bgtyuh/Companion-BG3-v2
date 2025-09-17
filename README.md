@@ -43,7 +43,7 @@ Depuis `frontend/` :
 
 1. **Préparer l'API**
    ```bash
-   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/backend"
+   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2"
    python -m venv .venv
    .venv\Scripts\activate
    pip install -r requirements.txt

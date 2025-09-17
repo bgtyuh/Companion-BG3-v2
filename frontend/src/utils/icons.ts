@@ -53,6 +53,82 @@ function safeDecode(value: string) {
   }
 }
 
+const percentEncodedPattern = /%[0-9a-f]{2}/i
+
+function encodePathSegment(segment: string) {
+  let result = ''
+  let index = 0
+
+  while (index < segment.length) {
+    const char = segment[index]
+
+    if (char === '%' && percentEncodedPattern.test(segment.slice(index, index + 3))) {
+      result += segment.slice(index, index + 3).toLowerCase()
+      index += 3
+      continue
+    }
+
+    let nextIndex = index
+    while (nextIndex < segment.length) {
+      const nextChar = segment[nextIndex]
+      if (
+        nextChar === '%' &&
+        percentEncodedPattern.test(segment.slice(nextIndex, nextIndex + 3))
+      ) {
+        break
+      }
+      nextIndex += 1
+    }
+
+    if (nextIndex > index) {
+      const chunk = segment.slice(index, nextIndex)
+      const encoded = encodeURIComponent(chunk)
+        .replace(/[!'()*]/g, (value) => `%${value.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .toLowerCase()
+      result += encoded
+      index = nextIndex
+    } else {
+      const encoded = `%${segment.charCodeAt(index).toString(16).padStart(2, '0')}`.toLowerCase()
+      result += encoded
+      index += 1
+    }
+  }
+
+  return result
+}
+
+function encodePath(value: string) {
+  return value
+    .split('/')
+    .map((segment) => encodePathSegment(segment))
+    .join('/')
+}
+
+function generatePathVariants(path: string) {
+  const variants = new Set<string>()
+  const queue = [path]
+
+  while (queue.length) {
+    const current = queue.pop()
+    if (!current) continue
+    if (variants.has(current)) continue
+
+    variants.add(current)
+
+    const encoded = encodePath(current)
+    if (encoded !== current) {
+      queue.push(encoded)
+    }
+
+    const decoded = safeDecode(current)
+    if (decoded !== current) {
+      queue.push(decoded.toLowerCase())
+    }
+  }
+
+  return variants
+}
+
 const suffixTokens = ['icon', 'spell', 'melee', 'ranged', 'faded', 'badge']
 
 const plusWordMap: Record<string, string> = {
@@ -125,8 +201,13 @@ function createIconLookup(glob: Record<string, unknown>): IconLookup {
     if (typeof url !== 'string') continue
 
     const normalizedPath = normalizeIconPath(filePath)
-    if (normalizedPath && !byPath.has(normalizedPath)) {
-      byPath.set(normalizedPath, url)
+    if (normalizedPath) {
+      const pathVariants = generatePathVariants(normalizedPath)
+      for (const variant of pathVariants) {
+        if (!byPath.has(variant)) {
+          byPath.set(variant, url)
+        }
+      }
     }
 
     const segments = filePath.split('/')

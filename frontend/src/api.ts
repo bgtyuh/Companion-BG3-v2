@@ -2,7 +2,6 @@ import type {
   ArmourItem,
   AmuletItem,
   Build,
-  BuildLevel,
   CloakItem,
   ClothingItem,
   Enemy,
@@ -192,24 +191,4 @@ export const api = {
   getSpells: () => request<Spell[]>('/api/spells'),
   getRaces: () => request<Race[]>('/api/races'),
   getClasses: () => request<CharacterClass[]>('/api/classes'),
-}
-
-export type {
-  ArmourItem,
-  AmuletItem,
-  Build,
-  BuildLevel,
-  CloakItem,
-  ClothingItem,
-  Enemy,
-  FootwearItem,
-  HandwearItem,
-  HeadwearItem,
-  LootItem,
-  RingItem,
-  Race,
-  CharacterClass,
-  ShieldItem,
-  Spell,
-  WeaponItem,
 }

@@ -1112,7 +1112,6 @@ button:focus-visible {
 
 .equipment-layout .icon-grid__tooltip {
   z-index: 200;
-  background: rgba(9, 18, 32, 0.8);
 }
 
 .icon-grid__item:focus-visible .icon-grid__tooltip,

@@ -6,6 +6,20 @@ interface FeatLibraryProps {
   feats: Feat[]
 }
 
+function normalizeFeatNotes(notes: Feat['notes']): string[] {
+  return notes
+    .map((note) => {
+      if (typeof note === 'string') {
+        return note.trim()
+      }
+      if (note && typeof note.note === 'string') {
+        return note.note.trim()
+      }
+      return ''
+    })
+    .filter((note) => note.length > 0)
+}
+
 function matchesSearch(feat: Feat, query: string) {
   const lower = query.trim().toLowerCase()
   if (!lower) return true
@@ -23,7 +37,7 @@ function matchesSearch(feat: Feat, query: string) {
     return true
   }
 
-  if (feat.notes.some((note) => note.toLowerCase().includes(lower))) {
+  if (normalizeFeatNotes(feat.notes).some((note) => note.toLowerCase().includes(lower))) {
     return true
   }
 
@@ -102,6 +116,7 @@ export function FeatLibrary({ feats }: FeatLibraryProps) {
       <div className="feat-library">
         {filteredFeats.map((feat) => {
           const prerequisiteLabel = feat.prerequisite?.trim()
+          const notes = normalizeFeatNotes(feat.notes)
           return (
             <article key={feat.name} className="feat-card">
               <header className="feat-card__header">
@@ -130,11 +145,11 @@ export function FeatLibrary({ feats }: FeatLibraryProps) {
                   </ul>
                 </div>
               ) : null}
-              {feat.notes.length ? (
+              {notes.length ? (
                 <div className="feat-card__notes">
                   <strong>Conseils</strong>
                   <ul>
-                    {feat.notes.map((note, index) => (
+                    {notes.map((note, index) => (
                       <li key={`${feat.name}-note-${index}`}>{note}</li>
                     ))}
                   </ul>

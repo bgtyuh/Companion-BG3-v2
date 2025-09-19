@@ -30,12 +30,15 @@ export function IconCard({ name, iconUrl, children }: IconCardProps) {
           </span>
         )}
       </div>
-      <span className="icon-grid__label" title={name}>
+      <span className="icon-grid__label">
         <span className="icon-grid__label-text">{name}</span>
       </span>
       {hasTooltip ? (
         <div className="icon-grid__tooltip" id={tooltipId} role="tooltip">
-          <div className="icon-grid__tooltip-content">{children}</div>
+          <div className="icon-grid__tooltip-content">
+            <p className="icon-grid__tooltip-title">{name}</p>
+            {children}
+          </div>
         </div>
       ) : null}
     </div>

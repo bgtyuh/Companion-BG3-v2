@@ -316,3 +316,69 @@ class CharacterClass(BaseModel):
     starting_equipment: Optional[str] = None
     subclasses: List[Subclass] = Field(default_factory=list)
     progression: List[ClassProgressionEntry] = Field(default_factory=list)
+
+
+class BackgroundSkill(BaseModel):
+    name: str
+
+
+class BackgroundCharacter(BaseModel):
+    name: str
+
+
+class BackgroundNote(BaseModel):
+    note: str
+
+
+class Background(BaseModel):
+    name: str
+    description: Optional[str] = None
+    skills: List[BackgroundSkill] = Field(default_factory=list)
+    characters: List[BackgroundCharacter] = Field(default_factory=list)
+    notes: List[BackgroundNote] = Field(default_factory=list)
+
+
+class FeatOption(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class FeatNote(BaseModel):
+    note: str
+
+
+class Feat(BaseModel):
+    name: str
+    description: Optional[str] = None
+    prerequisite: Optional[str] = None
+    options: List[FeatOption] = Field(default_factory=list)
+    notes: List[FeatNote] = Field(default_factory=list)
+
+
+class AbilityUse(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class AbilityCheck(BaseModel):
+    type: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AbilitySkill(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class AbilitySave(BaseModel):
+    description: Optional[str] = None
+
+
+class Ability(BaseModel):
+    name: str
+    description: Optional[str] = None
+    image_path: Optional[str] = None
+    uses: List[AbilityUse] = Field(default_factory=list)
+    checks: List[AbilityCheck] = Field(default_factory=list)
+    skills: List[AbilitySkill] = Field(default_factory=list)
+    saves: List[AbilitySave] = Field(default_factory=list)

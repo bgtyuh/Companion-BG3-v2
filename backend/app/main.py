@@ -838,3 +838,167 @@ def list_classes() -> List[schemas.CharacterClass]:
             )
         )
     return result
+
+
+@app.get("/api/backgrounds", response_model=List[schemas.Background])
+def list_backgrounds() -> List[schemas.Background]:
+    backgrounds = fetch_all(
+        "backgrounds", "SELECT name, description FROM Backgrounds"
+    )
+    if not backgrounds:
+        return []
+
+    skill_rows = fetch_all(
+        "backgrounds",
+        "SELECT background_name, skill_name FROM Background_Skills",
+    )
+    character_rows = fetch_all(
+        "backgrounds",
+        "SELECT background_name, character_name FROM Background_Characters",
+    )
+    note_rows = fetch_all(
+        "backgrounds", "SELECT background_name, note FROM Background_Notes"
+    )
+
+    skill_map: Dict[str, List[schemas.BackgroundSkill]] = defaultdict(list)
+    for row in skill_rows:
+        skill_map[row["background_name"]].append(
+            schemas.BackgroundSkill(name=row.get("skill_name") or "")
+        )
+
+    character_map: Dict[str, List[schemas.BackgroundCharacter]] = defaultdict(list)
+    for row in character_rows:
+        character_map[row["background_name"]].append(
+            schemas.BackgroundCharacter(name=row.get("character_name") or "")
+        )
+
+    note_map: Dict[str, List[schemas.BackgroundNote]] = defaultdict(list)
+    for row in note_rows:
+        note_map[row["background_name"]].append(
+            schemas.BackgroundNote(note=row.get("note") or "")
+        )
+
+    return [
+        schemas.Background(
+            name=row["name"],
+            description=row.get("description"),
+            skills=skill_map.get(row["name"], []),
+            characters=character_map.get(row["name"], []),
+            notes=note_map.get(row["name"], []),
+        )
+        for row in backgrounds
+    ]
+
+
+@app.get("/api/feats", response_model=List[schemas.Feat])
+def list_feats() -> List[schemas.Feat]:
+    feats = fetch_all(
+        "feats", "SELECT name, description, prerequisite FROM Feats"
+    )
+    if not feats:
+        return []
+
+    option_rows = fetch_all(
+        "feats",
+        "SELECT feat_name, option_name, description FROM Feat_Options",
+    )
+    note_rows = fetch_all(
+        "feats", "SELECT feat_name, note FROM Feat_Notes"
+    )
+
+    option_map: Dict[str, List[schemas.FeatOption]] = defaultdict(list)
+    for row in option_rows:
+        option_map[row["feat_name"]].append(
+            schemas.FeatOption(
+                name=row.get("option_name") or "",
+                description=row.get("description"),
+            )
+        )
+
+    note_map: Dict[str, List[schemas.FeatNote]] = defaultdict(list)
+    for row in note_rows:
+        note_map[row["feat_name"]].append(
+            schemas.FeatNote(note=row.get("note") or "")
+        )
+
+    return [
+        schemas.Feat(
+            name=row["name"],
+            description=row.get("description"),
+            prerequisite=row.get("prerequisite"),
+            options=option_map.get(row["name"], []),
+            notes=note_map.get(row["name"], []),
+        )
+        for row in feats
+    ]
+
+
+@app.get("/api/abilities", response_model=List[schemas.Ability])
+def list_abilities() -> List[schemas.Ability]:
+    abilities = fetch_all(
+        "abilities", "SELECT name, description, image_path FROM Abilities"
+    )
+    if not abilities:
+        return []
+
+    use_rows = fetch_all(
+        "abilities",
+        "SELECT ability_name, use_name, description FROM Ability_Uses",
+    )
+    check_rows = fetch_all(
+        "abilities",
+        "SELECT ability_name, check_type, description FROM Ability_Checks",
+    )
+    skill_rows = fetch_all(
+        "abilities",
+        "SELECT ability_name, skill_name, description FROM Ability_Check_Skills",
+    )
+    save_rows = fetch_all(
+        "abilities", "SELECT ability_name, description FROM Ability_Saves"
+    )
+
+    use_map: Dict[str, List[schemas.AbilityUse]] = defaultdict(list)
+    for row in use_rows:
+        use_map[row["ability_name"]].append(
+            schemas.AbilityUse(
+                name=row.get("use_name") or "",
+                description=row.get("description"),
+            )
+        )
+
+    check_map: Dict[str, List[schemas.AbilityCheck]] = defaultdict(list)
+    for row in check_rows:
+        check_map[row["ability_name"]].append(
+            schemas.AbilityCheck(
+                type=row.get("check_type"),
+                description=row.get("description"),
+            )
+        )
+
+    skill_map: Dict[str, List[schemas.AbilitySkill]] = defaultdict(list)
+    for row in skill_rows:
+        skill_map[row["ability_name"]].append(
+            schemas.AbilitySkill(
+                name=row.get("skill_name") or "",
+                description=row.get("description"),
+            )
+        )
+
+    save_map: Dict[str, List[schemas.AbilitySave]] = defaultdict(list)
+    for row in save_rows:
+        save_map[row["ability_name"]].append(
+            schemas.AbilitySave(description=row.get("description"))
+        )
+
+    return [
+        schemas.Ability(
+            name=row["name"],
+            description=row.get("description"),
+            image_path=row.get("image_path"),
+            uses=use_map.get(row["name"], []),
+            checks=check_map.get(row["name"], []),
+            skills=skill_map.get(row["name"], []),
+            saves=save_map.get(row["name"], []),
+        )
+        for row in abilities
+    ]

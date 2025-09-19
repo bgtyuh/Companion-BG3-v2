@@ -246,6 +246,56 @@ export interface CharacterClass {
   progression: ClassProgressionEntry[]
 }
 
+export interface Background {
+  name: string
+  description?: string | null
+  skills: string[]
+  characters: string[]
+  notes: string[]
+}
+
+export interface FeatOption {
+  name: string
+  description?: string | null
+}
+
+export interface Feat {
+  name: string
+  description?: string | null
+  prerequisite?: string | null
+  options: FeatOption[]
+  notes: string[]
+}
+
+export interface AbilityUse {
+  name: string
+  description?: string | null
+}
+
+export interface AbilityCheck {
+  type: string
+  description?: string | null
+}
+
+export interface AbilitySkill {
+  name: string
+  description?: string | null
+}
+
+export interface AbilitySave {
+  description?: string | null
+}
+
+export interface Ability {
+  name: string
+  description?: string | null
+  image_path?: string | null
+  uses: AbilityUse[]
+  checks: AbilityCheck[]
+  skills: AbilitySkill[]
+  saves: AbilitySave[]
+}
+
 export type AbilityScoreKey =
   | 'Strength'
   | 'Dexterity'

@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { useLocalStorage } from '../hooks'
 import type {
   AbilityScoreKey,
+  Background,
   Build,
   CharacterClass,
   EquipmentCollections,
@@ -24,6 +25,7 @@ interface PartyPlannerProps {
   races: Race[]
   classes: CharacterClass[]
   spells: Spell[]
+  backgrounds: Background[]
   equipment: EquipmentCollections
 }
 
@@ -215,6 +217,7 @@ export function PartyPlanner({
   races,
   classes,
   spells,
+  backgrounds,
   equipment,
 }: PartyPlannerProps) {
   const {
@@ -230,6 +233,14 @@ export function PartyPlanner({
     amulets,
   } = equipment
 
+  const backgroundOptions = useMemo(
+    () => backgrounds.map((item) => item.name).sort((a, b) => a.localeCompare(b, 'fr')),
+    [backgrounds],
+  )
+  const backgroundMap = useMemo(
+    () => new Map(backgrounds.map((item) => [item.name, item])),
+    [backgrounds],
+  )
   const weaponOptions = useMemo(() => weapons.map((item) => item.name), [weapons])
   const armourOptions = useMemo(() => armours.map((item) => item.name), [armours])
   const shieldOptions = useMemo(() => shields.map((item) => item.name), [shields])
@@ -311,6 +322,12 @@ export function PartyPlanner({
       weaponOptions,
     ],
   )
+
+  const backgroundSelection = editingMember?.background?.trim() ?? ''
+  const selectedBackgroundInfo = backgroundSelection
+    ? backgroundMap.get(backgroundSelection) ?? null
+    : null
+  const hasCustomBackground = Boolean(backgroundSelection && !backgroundMap.has(backgroundSelection))
 
   useEffect(() => {
     if (!members.length) {
@@ -615,12 +632,52 @@ export function PartyPlanner({
 
                 <label>
                   Historique
-                  <input
-                    type="text"
+                  <select
                     value={editingMember.background ?? ''}
-                    onChange={(event) => setEditingMember({ ...editingMember, background: event.target.value })}
-                  />
+                    onChange={(event) =>
+                      setEditingMember({
+                        ...editingMember,
+                        background: event.target.value || undefined,
+                      })
+                    }
+                  >
+                    <option value="">—</option>
+                    {backgroundOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    {hasCustomBackground ? (
+                      <option value={backgroundSelection}>{backgroundSelection}</option>
+                    ) : null}
+                  </select>
                 </label>
+                {selectedBackgroundInfo ? (
+                  <div className="party-form__background-details">
+                    {selectedBackgroundInfo.description ? (
+                      <p>{selectedBackgroundInfo.description}</p>
+                    ) : null}
+                    {selectedBackgroundInfo.skills.length ? (
+                      <p>
+                        <strong>Compétences :</strong>{' '}
+                        {selectedBackgroundInfo.skills.join(', ')}
+                      </p>
+                    ) : null}
+                    {selectedBackgroundInfo.characters.length ? (
+                      <p>
+                        <strong>PNJ associés :</strong>{' '}
+                        {selectedBackgroundInfo.characters.join(', ')}
+                      </p>
+                    ) : null}
+                    {selectedBackgroundInfo.notes.length ? (
+                      <ul>
+                        {selectedBackgroundInfo.notes.map((note, index) => (
+                          <li key={`${selectedBackgroundInfo.name}-note-${index}`}>{note}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="party-form__grid">
                   <div>

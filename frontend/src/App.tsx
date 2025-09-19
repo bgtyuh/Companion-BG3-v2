@@ -9,6 +9,8 @@ import { EquipmentTabs, type EquipmentTabId } from './components/EquipmentTabs'
 import { LootChecklist } from './components/LootChecklist'
 import { PartyPlanner } from './components/PartyPlanner'
 import { SpellLibrary } from './components/SpellLibrary'
+import { FeatLibrary } from './components/FeatLibrary'
+import { AbilityReference } from './components/AbilityReference'
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
@@ -104,8 +106,30 @@ function App() {
     queryKey: ['classes'],
     queryFn: async () => sortByName(await api.getClasses()),
   })
+  const backgroundsQuery = useQuery({
+    queryKey: ['backgrounds'],
+    queryFn: async () => sortByName(await api.getBackgrounds()),
+  })
+  const featsQuery = useQuery({
+    queryKey: ['feats'],
+    queryFn: async () => sortByName(await api.getFeats()),
+  })
+  const abilitiesQuery = useQuery({
+    queryKey: ['abilities'],
+    queryFn: async () => sortByName(await api.getAbilities()),
+  })
 
-  const primaryQueries = [lootQuery, buildsQuery, enemiesQuery, spellsQuery, racesQuery, classesQuery] as const
+  const primaryQueries = [
+    lootQuery,
+    buildsQuery,
+    enemiesQuery,
+    spellsQuery,
+    racesQuery,
+    classesQuery,
+    backgroundsQuery,
+    featsQuery,
+    abilitiesQuery,
+  ] as const
   const equipmentQueries = [
     armoursQuery,
     ringsQuery,
@@ -218,6 +242,9 @@ function App() {
   const spells = useMemo(() => spellsQuery.data ?? [], [spellsQuery.data])
   const races = useMemo(() => racesQuery.data ?? [], [racesQuery.data])
   const classes = useMemo(() => classesQuery.data ?? [], [classesQuery.data])
+  const backgrounds = useMemo(() => backgroundsQuery.data ?? [], [backgroundsQuery.data])
+  const feats = useMemo(() => featsQuery.data ?? [], [featsQuery.data])
+  const abilities = useMemo(() => abilitiesQuery.data ?? [], [abilitiesQuery.data])
 
   const equipmentCollections = useMemo(
     () => ({
@@ -260,6 +287,7 @@ function App() {
               onDelete={handleDeleteLoot}
             />
             <SpellLibrary spells={spells} />
+            <FeatLibrary feats={feats} />
           </div>
 
           <div className="app__column app__column--wide">
@@ -268,6 +296,7 @@ function App() {
               races={races}
               classes={classes}
               spells={spells}
+              backgrounds={backgrounds}
               equipment={equipmentCollections}
             />
           </div>
@@ -294,6 +323,7 @@ function App() {
               amulets={amulets}
               onTabChange={handleEquipmentTabChange}
             />
+            <AbilityReference abilities={abilities} />
             <BestiaryPanel
               enemies={enemies}
               onCreate={handleCreateEnemy}

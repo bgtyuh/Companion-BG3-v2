@@ -259,12 +259,16 @@ export interface FeatOption {
   description?: string | null
 }
 
+export interface FeatNote {
+  note?: string | null
+}
+
 export interface Feat {
   name: string
   description?: string | null
   prerequisite?: string | null
   options: FeatOption[]
-  notes: string[]
+  notes: Array<string | FeatNote>
 }
 
 export interface AbilityUse {

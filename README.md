@@ -41,6 +41,17 @@ Depuis `frontend/` :
 
 ## Instructions de développement
 
+Vous pouvez automatiser ces étapes grâce au script `scripts/manage.py` :
+
+```bash
+python scripts/manage.py setup        # installe les dépendances back et front
+python scripts/manage.py run-backend  # lance le serveur FastAPI (avec --no-reload pour désactiver le hot-reload)
+python scripts/manage.py run-frontend # lance le serveur de développement Vite
+python scripts/manage.py dev          # lance les deux serveurs et les arrête ensemble
+```
+
+Les commandes restent optionnelles : vous pouvez toujours exécuter les instructions ci-dessous manuellement si vous préférez.
+
 1. **Préparer l'API**
    ```bash
    cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2"

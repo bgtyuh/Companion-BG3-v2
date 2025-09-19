@@ -760,6 +760,34 @@ button:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.party-form__background-details {
+  margin-top: -0.35rem;
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+  background: rgba(16, 28, 52, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.party-form__background-details strong {
+  color: var(--color-accent);
+}
+
+.party-form__background-details p {
+  margin: 0;
+}
+
+.party-form__background-details ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
 .ability-editor {
   display: grid;
   gap: 0.65rem;
@@ -1012,6 +1040,102 @@ button:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   color: var(--color-text-muted);
+}
+
+.feat-library {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.feat-card {
+  padding: 1.1rem 1.3rem;
+  border-radius: 24px;
+  background: rgba(16, 28, 52, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.feat-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.feat-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--color-accent);
+}
+
+.feat-card__prerequisite {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.feat-card__prerequisite--none {
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.feat-card__description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.feat-card__options,
+.feat-card__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.feat-card__options strong,
+.feat-card__notes strong {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.feat-card__options ul,
+.feat-card__notes ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+}
+
+.feat-card__option-name {
+  display: block;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.feat-card__options li p {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.feat-card__notes li {
+  line-height: 1.4;
+}
+
+.ability-library__saves {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .icon-grid {

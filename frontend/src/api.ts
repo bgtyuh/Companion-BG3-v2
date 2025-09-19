@@ -1,10 +1,13 @@
 import type {
+  Ability,
   ArmourItem,
   AmuletItem,
   Build,
   CloakItem,
   ClothingItem,
+  Background,
   Enemy,
+  Feat,
   FootwearItem,
   HandwearItem,
   HeadwearItem,
@@ -191,4 +194,7 @@ export const api = {
   getSpells: () => request<Spell[]>('/api/spells'),
   getRaces: () => request<Race[]>('/api/races'),
   getClasses: () => request<CharacterClass[]>('/api/classes'),
+  getBackgrounds: () => request<Background[]>('/api/backgrounds'),
+  getFeats: () => request<Feat[]>('/api/feats'),
+  getAbilities: () => request<Ability[]>('/api/abilities'),
 }

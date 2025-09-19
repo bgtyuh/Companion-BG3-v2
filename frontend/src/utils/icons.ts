@@ -247,6 +247,8 @@ const amuletIcons = import.meta
   .glob('../../../ressources/icons/amulet_images/*.png', { eager: true, import: 'default' })
 const spellIcons = import.meta
   .glob('../../../ressources/icons/spell_images/*.png', { eager: true, import: 'default' })
+const abilityIcons = import.meta
+  .glob('../../../ressources/icons/ability_images/*.png', { eager: true, import: 'default' })
 
 type IconCategory =
   | 'weapon'
@@ -260,6 +262,7 @@ type IconCategory =
   | 'ring'
   | 'amulet'
   | 'spell'
+  | 'ability'
 
 type IconMap = Record<IconCategory, IconLookup>
 
@@ -275,6 +278,7 @@ const iconMaps: IconMap = {
   ring: createIconLookup(ringIcons),
   amulet: createIconLookup(amuletIcons),
   spell: createIconLookup(spellIcons),
+  ability: createIconLookup(abilityIcons),
 }
 
 const globalPathIndex = new Map<string, string>()

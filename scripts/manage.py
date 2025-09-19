@@ -62,10 +62,11 @@ def install_backend_dependencies() -> None:
 
 
 def install_frontend_dependencies() -> None:
-    if not shutil.which("npm"):
+    npm_executable = shutil.which("npm")
+    if not npm_executable:
         raise CommandError("npm is required to install front-end dependencies but was not found in PATH.")
 
-    _run(["npm", "install"], cwd=FRONTEND_DIR)
+    _run([npm_executable, "install"], cwd=FRONTEND_DIR)
 
 
 def run_backend(reload: bool = True) -> None:
@@ -84,10 +85,11 @@ def run_backend(reload: bool = True) -> None:
 
 
 def run_frontend() -> None:
-    if not shutil.which("npm"):
+    npm_executable = shutil.which("npm")
+    if not npm_executable:
         raise CommandError("npm is required to run the front-end but was not found in PATH.")
 
-    _run(["npm", "run", "dev"], cwd=FRONTEND_DIR)
+    _run([npm_executable, "run", "dev"], cwd=FRONTEND_DIR)
 
 
 def run_dev_server() -> None:

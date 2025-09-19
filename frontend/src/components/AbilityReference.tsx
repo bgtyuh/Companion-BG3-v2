@@ -54,7 +54,8 @@ export function AbilityReference({ abilities }: AbilityReferenceProps) {
         if (
           ability.uses.some(
             (use) =>
-              use.name.toLowerCase().includes(lower) || use.description?.toLowerCase().includes(lower) ?? false,
+              use.name.toLowerCase().includes(lower) ||
+              (use.description?.toLowerCase().includes(lower) ?? false),
           )
         ) {
           return true
@@ -62,12 +63,15 @@ export function AbilityReference({ abilities }: AbilityReferenceProps) {
         if (
           ability.skills.some(
             (skill) =>
-              skill.name.toLowerCase().includes(lower) || skill.description?.toLowerCase().includes(lower) ?? false,
+              skill.name.toLowerCase().includes(lower) ||
+              (skill.description?.toLowerCase().includes(lower) ?? false),
           )
         ) {
           return true
         }
-        return ability.saves.some((save) => save.description?.toLowerCase().includes(lower) ?? false)
+        return ability.saves.some(
+          (save) => save.description?.toLowerCase().includes(lower) ?? false,
+        )
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   }, [abilities, search])

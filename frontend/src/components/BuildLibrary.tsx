@@ -14,15 +14,6 @@ interface BuildLibraryProps {
 
 const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
 
-const emptyLevel: BuildLevel = {
-  level: 1,
-  spells: '',
-  feats: '',
-  subclass_choice: '',
-  multiclass_choice: '',
-  note: '',
-}
-
 function splitFeatureList(raw?: string | null): string[] {
   if (!raw) {
     return []
@@ -33,21 +24,15 @@ function splitFeatureList(raw?: string | null): string[] {
     .filter((entry) => entry.length > 0 && entry !== '-')
 }
 
-function normalize(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function extractSelectedOptions(source: string | null | undefined, options: string[]): string[] {
-  if (!source) {
-    return []
+function createEmptyLevel(level = 1): BuildLevel {
+  return {
+    level,
+    spells: '',
+    feats: '',
+    subclass_choice: '',
+    multiclass_choice: '',
+    note: '',
   }
-  const normalizedOptions = new Map(options.map((option) => [normalize(option), option]))
-  return source
-    .split(/[,•/\n;]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .map((entry) => normalizedOptions.get(normalize(entry)) ?? null)
-    .filter((entry): entry is string => entry != null)
 }
 
 function renderFeatureDescription(feature: SubclassFeature) {
@@ -65,10 +50,10 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     class_name: '',
     subclass: '',
     notes: '',
-    levels: [{ ...emptyLevel }],
+    levels: [createEmptyLevel()],
   })
   function resetForm(hideForm = false) {
-    setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [{ ...emptyLevel }] })
+    setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [createEmptyLevel()] })
     setIsEditing(false)
     setSelectedId(null)
     if (hideForm) {
@@ -180,8 +165,16 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       subclass: build.subclass ?? '',
       notes: build.notes ?? '',
       levels: build.levels.length
-        ? build.levels.map((level) => ({ ...level, note: level.note ?? '' }))
-        : [{ ...emptyLevel }],
+        ? build.levels.map((level) => ({
+            id: level.id,
+            level: level.level,
+            spells: level.spells ?? '',
+            feats: level.feats ?? '',
+            subclass_choice: level.subclass_choice ?? '',
+            multiclass_choice: level.multiclass_choice ?? '',
+            note: level.note ?? '',
+          }))
+        : [createEmptyLevel()],
     })
     setSelectedId(build.id)
     setIsEditing(true)
@@ -196,7 +189,10 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }
 
   function addLevel() {
-    setForm((state) => ({ ...state, levels: [...state.levels, { ...emptyLevel, level: Math.min(12, state.levels.length + 1) }] }))
+    setForm((state) => ({
+      ...state,
+      levels: [...state.levels, createEmptyLevel(Math.min(12, state.levels.length + 1))],
+    }))
   }
 
   function removeLevel(index: number) {
@@ -400,11 +396,19 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                 {form.levels.map((level, index) => {
                   const classProgression = selectedClass?.progression.find((entry) => entry.level === level.level)
                   const classFeatureOptions = splitFeatureList(classProgression?.features)
-                  const selectedClassFeatures = extractSelectedOptions(level.spells ?? '', classFeatureOptions)
                   const progressionHighlights = getProgressionHighlights(classProgression)
                   const subclassFeatures = subclassFeaturesByLevel.get(level.level) ?? []
-                  const subclassFeatureOptions = subclassFeatures.map((feature) => feature.feature_name)
-                  const selectedSubclassFeatures = extractSelectedOptions(level.subclass_choice ?? '', subclassFeatureOptions)
+                  const shouldSuggestFeat = classFeatureOptions.some((feature) => /feat|improvement/i.test(feature))
+                  const shouldSuggestSubclassChoice = classFeatureOptions.some((feature) => /subclass/i.test(feature))
+                  const shouldSuggestChoices =
+                    classFeatureOptions.some((feature) =>
+                      /choose|pick|select|spell|cantrip|invocation|metamagic|prepared|fighting style|infusion|maneuver|expertise/i.test(
+                        feature,
+                      ),
+                    ) || Boolean(classProgression?.cantrips_known || classProgression?.spells_known)
+                  const displayChoiceField = shouldSuggestChoices || Boolean(level.spells)
+                  const displayFeatField = shouldSuggestFeat || Boolean(level.feats)
+                  const displaySubclassChoice = shouldSuggestSubclassChoice || Boolean(level.subclass_choice)
 
                   return (
                     <div key={`${level.level}-${index}`} className="build-form__level">
@@ -446,26 +450,12 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
 
                       {classFeatureOptions.length ? (
                         <div className="build-form__level-section">
-                          <label>
-                            Capacités de classe disponibles
-                            <select
-                              multiple
-                              value={selectedClassFeatures}
-                              onChange={(event) => {
-                                const values = Array.from(event.target.selectedOptions, (option) => option.value)
-                                updateLevel(index, { spells: values.join('\n') })
-                              }}
-                            >
-                              {classFeatureOptions.map((feature) => (
-                                <option key={feature} value={feature}>
-                                  {feature}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <p className="build-form__hint">
-                            Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs capacités à mettre en avant.
-                          </p>
+                          <h5>Ce que le jeu accorde à ce niveau</h5>
+                          <ul className="build-form__feature-list">
+                            {classFeatureOptions.map((feature) => (
+                              <li key={feature}>{feature}</li>
+                            ))}
+                          </ul>
                         </div>
                       ) : (
                         <p className="build-form__hint build-form__hint--muted">
@@ -473,35 +463,21 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                         </p>
                       )}
 
-                      <label className="build-form__level-summary">
-                        Résumé de vos choix de classe
-                        <textarea
-                          rows={2}
-                          value={level.spells ?? ''}
-                          onChange={(event) => updateLevel(index, { spells: event.target.value })}
-                          placeholder="Décrivez les capacités ou combinaisons que vous souhaitez retenir pour ce niveau."
-                        />
-                      </label>
+                      {displayChoiceField ? (
+                        <label className="build-form__level-summary">
+                          Choix imposés par le niveau
+                          <textarea
+                            rows={2}
+                            value={level.spells ?? ''}
+                            onChange={(event) => updateLevel(index, { spells: event.target.value })}
+                            placeholder="Notez les sorts appris, styles de combat, invocations, maîtrises…"
+                          />
+                        </label>
+                      ) : null}
 
                       {subclassFeatures.length ? (
                         <div className="build-form__level-section">
-                          <label>
-                            Capacités de sous-classe
-                            <select
-                              multiple
-                              value={selectedSubclassFeatures}
-                              onChange={(event) => {
-                                const values = Array.from(event.target.selectedOptions, (option) => option.value)
-                                updateLevel(index, { subclass_choice: values.join('\n') })
-                              }}
-                            >
-                              {subclassFeatureOptions.map((feature) => (
-                                <option key={feature} value={feature}>
-                                  {feature}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          <h5>Caractéristiques de sous-classe</h5>
                           <ul className="build-form__feature-list">
                             {subclassFeatures.map((feature) => (
                               <li key={`${feature.feature_name}-${feature.level}`}>
@@ -512,39 +488,64 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                               </li>
                             ))}
                           </ul>
+                          {displaySubclassChoice ? (
+                            <label>
+                              Choix de sous-classe ou option liée
+                              <textarea
+                                rows={2}
+                                value={level.subclass_choice ?? ''}
+                                onChange={(event) => updateLevel(index, { subclass_choice: event.target.value })}
+                                placeholder="Indiquez le serment, la tradition ou l’option sélectionnée."
+                              />
+                            </label>
+                          ) : null}
                         </div>
+                      ) : displaySubclassChoice ? (
+                        <label>
+                          Choix de sous-classe
+                          <textarea
+                            rows={2}
+                            value={level.subclass_choice ?? ''}
+                            onChange={(event) => updateLevel(index, { subclass_choice: event.target.value })}
+                            placeholder="Précisez la sous-classe retenue."
+                          />
+                        </label>
                       ) : null}
 
-                      <div className="build-form__level-row">
+                      {displayFeatField ? (
                         <label>
-                          Dons / améliorations
+                          Don ou amélioration sélectionné(e)
                           <input
                             type="text"
                             value={level.feats ?? ''}
                             onChange={(event) => updateLevel(index, { feats: event.target.value })}
-                            placeholder="Sharpshooter, Capacité améliorée…"
+                            placeholder="Athlete, Ability Improvement…"
                           />
                         </label>
-                        <label>
-                          Multi-classe
-                          <select
-                            value={level.multiclass_choice ?? ''}
-                            onChange={(event) => updateLevel(index, { multiclass_choice: event.target.value })}
-                          >
-                            <option value="">—</option>
-                            {classOptions.map((className) => (
-                              <option key={className} value={className}>
-                                {className}
-                              </option>
-                            ))}
-                            {level.multiclass_choice &&
-                            level.multiclass_choice !== '' &&
-                            !classOptions.includes(level.multiclass_choice) ? (
-                              <option value={level.multiclass_choice}>{level.multiclass_choice}</option>
-                            ) : null}
-                          </select>
-                        </label>
-                      </div>
+                      ) : null}
+
+                      <label>
+                        Classe prise à ce niveau
+                        <select
+                          value={level.multiclass_choice ?? ''}
+                          onChange={(event) => updateLevel(index, { multiclass_choice: event.target.value })}
+                        >
+                          <option value="">—</option>
+                          {classOptions.map((className) => (
+                            <option key={className} value={className}>
+                              {className}
+                            </option>
+                          ))}
+                          {level.multiclass_choice &&
+                          level.multiclass_choice !== '' &&
+                          !classOptions.includes(level.multiclass_choice) ? (
+                            <option value={level.multiclass_choice}>{level.multiclass_choice}</option>
+                          ) : null}
+                        </select>
+                        <p className="build-form__hint">
+                          Sélectionnez la classe réellement prise en jeu pour ce niveau (utile pour les builds multi-classes).
+                        </p>
+                      </label>
 
                       <label>
                         Notes détaillées

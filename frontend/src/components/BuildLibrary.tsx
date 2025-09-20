@@ -47,6 +47,10 @@ function createEmptyLevel(level = 1): BuildFormLevel {
   }
 }
 
+function formatSpellCount(count: number): string {
+  return `${count} sort${count > 1 ? 's' : ''}`
+}
+
 function getKnownSpellsBeforeLevel(levels: BuildFormLevel[], index: number): string[] {
   const known: string[] = []
   for (let i = 0; i < index; i += 1) {
@@ -144,6 +148,33 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       const levelMap = new Map<number, string[]>()
       for (const group of klass.spells_learned ?? []) {
         levelMap.set(group.level, [...group.spells])
+      }
+      map.set(klass.name, levelMap)
+    }
+    return map
+  }, [classes])
+
+  const spellLimitsByClass = useMemo(() => {
+    const map = new Map<string, Map<number, number>>()
+    for (const klass of classes) {
+      const levelMap = new Map<number, number>()
+      const sortedProgression = [...(klass.progression ?? [])].sort((a, b) => a.level - b.level)
+      let previousSpellsKnown = 0
+      let previousCantripsKnown = 0
+      for (const entry of sortedProgression) {
+        const spellsKnown = typeof entry.spells_known === 'number' && Number.isFinite(entry.spells_known)
+          ? entry.spells_known
+          : previousSpellsKnown
+        const cantripsKnown = typeof entry.cantrips_known === 'number' && Number.isFinite(entry.cantrips_known)
+          ? entry.cantrips_known
+          : previousCantripsKnown
+        const newSpells = Math.max(0, spellsKnown - previousSpellsKnown)
+        const newCantrips = Math.max(0, cantripsKnown - previousCantripsKnown)
+        if (newSpells > 0 || newCantrips > 0) {
+          levelMap.set(entry.level, newSpells + newCantrips)
+        }
+        previousSpellsKnown = spellsKnown
+        previousCantripsKnown = cantripsKnown
       }
       map.set(klass.name, levelMap)
     }
@@ -283,12 +314,34 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }
 
   function handleToggleLearnedSpell(index: number, spell: string) {
-    updateSpellPlan(index, (plan) => {
-      const isSelected = plan.learned.includes(spell)
+    setForm((state) => {
+      const currentLevel = state.levels[index]
+      if (!currentLevel) {
+        return state
+      }
+      const classNameForLevel = currentLevel.multiclass_choice || state.class_name || ''
+      const limit = classNameForLevel
+        ? spellLimitsByClass.get(classNameForLevel)?.get(currentLevel.level)
+        : undefined
+      const isSelected = currentLevel.spellPlan.learned.includes(spell)
+      if (!isSelected && limit !== undefined && limit !== null && currentLevel.spellPlan.learned.length >= limit) {
+        return state
+      }
       const nextLearned = isSelected
-        ? plan.learned.filter((entry) => entry !== spell)
-        : [...plan.learned, spell].sort((a, b) => a.localeCompare(b, 'fr'))
-      return { ...plan, learned: nextLearned }
+        ? currentLevel.spellPlan.learned.filter((entry) => entry !== spell)
+        : [...currentLevel.spellPlan.learned, spell].sort((a, b) => a.localeCompare(b, 'fr'))
+      const nextLevels = state.levels.map((level, levelIndex) =>
+        levelIndex === index
+          ? {
+              ...level,
+              spellPlan: {
+                ...level.spellPlan,
+                learned: nextLearned,
+              },
+            }
+          : level,
+      )
+      return { ...state, levels: nextLevels }
     })
   }
 
@@ -567,6 +620,30 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   const availableSpells = classNameForLevel
                     ? spellsByClass.get(classNameForLevel)?.get(level.level) ?? []
                     : []
+                  const spellLimit = classNameForLevel
+                    ? spellLimitsByClass.get(classNameForLevel)?.get(level.level) ?? null
+                    : null
+                  const remainingSpellSlots =
+                    typeof spellLimit === 'number' ? spellLimit - plan.learned.length : null
+                  const hasExceededSpellLimit =
+                    typeof remainingSpellSlots === 'number' ? remainingSpellSlots < 0 : false
+                  const hasReachedSpellLimit =
+                    typeof remainingSpellSlots === 'number' ? remainingSpellSlots <= 0 : false
+                  let spellLimitMessage: string | null = null
+                  let spellLimitMessageClass = 'build-form__hint build-form__hint--muted'
+                  if (typeof spellLimit === 'number') {
+                    if (hasExceededSpellLimit && typeof remainingSpellSlots === 'number') {
+                      spellLimitMessage = `Limite dépassée : retirez ${formatSpellCount(Math.abs(remainingSpellSlots))}.`
+                      spellLimitMessageClass = 'build-form__hint'
+                    } else if (spellLimit === 0) {
+                      spellLimitMessage = "Ce niveau ne permet pas d'apprendre de nouveau sort."
+                    } else if (hasReachedSpellLimit) {
+                      spellLimitMessage = `Limite atteinte : vous avez sélectionné ${formatSpellCount(spellLimit)}.`
+                      spellLimitMessageClass = 'build-form__hint'
+                    } else if (typeof remainingSpellSlots === 'number' && remainingSpellSlots > 0) {
+                      spellLimitMessage = `Vous pouvez encore sélectionner ${formatSpellCount(remainingSpellSlots)}.`
+                    }
+                  }
                   const knownSpellsBefore = getKnownSpellsBeforeLevel(form.levels, index)
                   const hasSpellNotes =
                     Boolean(plan.summary.trim()) || plan.learned.length > 0 || plan.replacements.length > 0
@@ -637,22 +714,31 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                           <h5>Sorts à apprendre ou à ajuster</h5>
                           {availableSpells.length ? (
                             <div className="build-form__spell-options">
-                              {availableSpells.map((spell) => (
-                                <label key={spell} className="build-form__spell-option">
-                                  <input
-                                    type="checkbox"
-                                    checked={plan.learned.includes(spell)}
-                                    onChange={() => handleToggleLearnedSpell(index, spell)}
-                                  />
-                                  <span>{spell}</span>
-                                </label>
-                              ))}
+                              {availableSpells.map((spell) => {
+                                const isChecked = plan.learned.includes(spell)
+                                const disableAdditionalSpells =
+                                  !isChecked && typeof spellLimit === 'number' && hasReachedSpellLimit
+                                return (
+                                  <label key={spell} className="build-form__spell-option">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled={disableAdditionalSpells}
+                                      onChange={() => handleToggleLearnedSpell(index, spell)}
+                                    />
+                                    <span>{spell}</span>
+                                  </label>
+                                )
+                              })}
                             </div>
                           ) : (
                             <p className="build-form__hint build-form__hint--muted">
                               Aucun sort supplémentaire n'est proposé pour ce niveau.
                             </p>
                           )}
+                          {spellLimitMessage ? (
+                            <p className={spellLimitMessageClass}>{spellLimitMessage}</p>
+                          ) : null}
                           {plan.learned.length && !availableSpells.length ? (
                             <p className="build-form__hint build-form__hint--muted">
                               Ces sorts ont été ajoutés manuellement pour ce niveau.

@@ -23,7 +23,7 @@ const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
 
 type BuildFormLevel = BuildLevel & { spellPlan: BuildSpellPlan }
 
-type BuildFormState = Omit<Build, 'id'> & { levels: BuildFormLevel[] }
+type BuildFormState = Omit<Build, 'id' | 'levels'> & { levels: BuildFormLevel[] }
 
 function splitFeatureList(raw?: string | null): string[] {
   if (!raw) {
@@ -252,7 +252,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
 
   function updateLevel(index: number, updates: Partial<BuildFormLevel>) {
     setForm((state) => {
-      const nextLevels = state.levels.map((level, i) => {
+      const nextLevels: BuildFormLevel[] = state.levels.map((level, i): BuildFormLevel => {
         if (i !== index) {
           return level
         }
@@ -270,7 +270,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
 
   function updateSpellPlan(index: number, updater: (plan: BuildSpellPlan) => BuildSpellPlan) {
     setForm((state) => {
-      const nextLevels = state.levels.map((level, i) =>
+      const nextLevels: BuildFormLevel[] = state.levels.map((level, i): BuildFormLevel =>
         i === index
           ? {
               ...level,
@@ -325,17 +325,20 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }
 
   function addLevel() {
-    setForm((state) => ({
-      ...state,
-      levels: [...state.levels, createEmptyLevel(Math.min(12, state.levels.length + 1))],
-    }))
+    setForm((state) => {
+      const nextLevels: BuildFormLevel[] = [
+        ...state.levels,
+        createEmptyLevel(Math.min(12, state.levels.length + 1)),
+      ]
+      return { ...state, levels: nextLevels }
+    })
   }
 
   function removeLevel(index: number) {
-    setForm((state) => ({
-      ...state,
-      levels: state.levels.filter((_, i) => i !== index),
-    }))
+    setForm((state) => {
+      const nextLevels: BuildFormLevel[] = state.levels.filter((_, i) => i !== index)
+      return { ...state, levels: nextLevels }
+    })
   }
 
   function handleCreateClick() {
@@ -443,7 +446,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                     onChange={(event) => {
                       const nextClass = event.target.value
                       setForm((state) => {
-                        const nextLevels = state.levels.map((level) => {
+                        const nextLevels: BuildFormLevel[] = state.levels.map((level): BuildFormLevel => {
                           if (level.multiclass_choice) {
                             return level
                           }
@@ -658,7 +661,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                           {knownSpellsBefore.length || plan.replacements.length ? (
                             <div className="build-form__spell-replacements">
                               <h6>Remplacements possibles</h6>
-                              {plan.replacements.map((replacement, replacementIndex) => (
+                              {plan.replacements.map((replacement: BuildSpellReplacement, replacementIndex) => (
                                 <div
                                   key={`replacement-${replacementIndex}`}
                                   className="build-form__spell-replacement-row"

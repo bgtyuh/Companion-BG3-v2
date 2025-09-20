@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Build, BuildLevel, CharacterClass, Race, SubclassFeature } from '../types'
 import { getProgressionHighlights } from '../utils/progression'
+import { getClassLevelChoices } from '../utils/classLevelChoices'
 import {
   createEmptyBuildSpellPlan,
   parseBuildSpellPlan,
@@ -34,6 +35,86 @@ function splitFeatureList(raw?: string | null): string[] {
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0 && entry !== '-')
 }
+
+function mergeFeatureLists(...lists: Array<readonly string[]>): string[] {
+  const seen = new Set<string>()
+  const merged: string[] = []
+  for (const list of lists) {
+    for (const entry of list) {
+      const trimmed = entry.trim()
+      if (!trimmed) continue
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(trimmed)
+    }
+  }
+  return merged
+}
+
+function normalizeForMatching(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function matchesKeywords(value: string, keywords: readonly string[]): boolean {
+  if (!value) return false
+  const normalized = normalizeForMatching(value)
+  return keywords.some((keyword) => normalized.includes(keyword))
+}
+
+const FEAT_KEYWORDS = ['feat', 'improvement', 'don', 'asi', 'amelioration'] as const
+const SUBCLASS_KEYWORDS = [
+  'subclass',
+  'college',
+  'tradition',
+  'serment',
+  'oath',
+  'cercle',
+  'circle',
+  'patron',
+  'pact',
+  'coeur',
+  'aspect',
+  'heart',
+  'boon',
+  'compagnon',
+  'companion',
+  'path',
+  'ecole',
+  'school',
+] as const
+const GENERAL_CHOICE_KEYWORDS = [
+  'choose',
+  'choisir',
+  'pick',
+  'select',
+  'spell',
+  'sort',
+  'cantrip',
+  'tour de magie',
+  'invocation',
+  'metamagie',
+  'metamagic',
+  'technique',
+  'style de combat',
+  'fighting style',
+  'maneuver',
+  'manoeuvre',
+  'expertise',
+  'companion',
+  'compagnon',
+  'aspect',
+  'coeur',
+  'preparer',
+  'preparation',
+  'liste de sorts',
+  'competence',
+  'prepared',
+  'infusion',
+] as const
 
 function createEmptyLevel(level = 1): BuildFormLevel {
   return {
@@ -604,19 +685,26 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                     level.multiclass_choice && level.multiclass_choice !== ''
                       ? classes.find((klass) => klass.name === level.multiclass_choice) ?? null
                       : selectedClass
+                  const classNameForLevel = levelClass?.name ?? ''
                   const classProgression = levelClass?.progression.find((entry) => entry.level === level.level)
-                  const classFeatureOptions = splitFeatureList(classProgression?.features)
+                  const levelChoices = classNameForLevel
+                    ? getClassLevelChoices(classNameForLevel, level.level)
+                    : []
+                  const classFeatureOptions = mergeFeatureLists(
+                    levelChoices,
+                    splitFeatureList(classProgression?.features),
+                  )
                   const progressionHighlights = getProgressionHighlights(classProgression)
                   const subclassFeatures = subclassFeaturesByLevel.get(level.level) ?? []
-                  const shouldSuggestFeat = classFeatureOptions.some((feature) => /feat|improvement/i.test(feature))
-                  const shouldSuggestSubclassChoice = classFeatureOptions.some((feature) => /subclass/i.test(feature))
+                  const shouldSuggestFeat = classFeatureOptions.some((feature) =>
+                    matchesKeywords(feature, FEAT_KEYWORDS),
+                  )
+                  const shouldSuggestSubclassChoice = classFeatureOptions.some((feature) =>
+                    matchesKeywords(feature, SUBCLASS_KEYWORDS),
+                  )
                   const shouldSuggestChoices =
-                    classFeatureOptions.some((feature) =>
-                      /choose|pick|select|spell|cantrip|invocation|metamagic|prepared|fighting style|infusion|maneuver|expertise/i.test(
-                        feature,
-                      ),
-                    ) || Boolean(classProgression?.cantrips_known || classProgression?.spells_known)
-                  const classNameForLevel = level.multiclass_choice || form.class_name || ''
+                    classFeatureOptions.some((feature) => matchesKeywords(feature, GENERAL_CHOICE_KEYWORDS)) ||
+                    Boolean(classProgression?.cantrips_known || classProgression?.spells_known)
                   const availableSpells = classNameForLevel
                     ? spellsByClass.get(classNameForLevel)?.get(level.level) ?? []
                     : []

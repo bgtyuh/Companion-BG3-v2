@@ -316,6 +316,12 @@ class CharacterClass(BaseModel):
     starting_equipment: Optional[str] = None
     subclasses: List[Subclass] = Field(default_factory=list)
     progression: List[ClassProgressionEntry] = Field(default_factory=list)
+    spells_learned: List["ClassSpellList"] = Field(default_factory=list)
+
+
+class ClassSpellList(BaseModel):
+    level: int = Field(ge=1, le=12)
+    spells: List[str] = Field(default_factory=list)
 
 
 class BackgroundSkill(BaseModel):

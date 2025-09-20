@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { Build, BuildLevel, CharacterClass, Race, SubclassFeature } from '../types'
 import { getProgressionHighlights } from '../utils/progression'
+import {
+  createEmptyBuildSpellPlan,
+  parseBuildSpellPlan,
+  serializeBuildSpellPlan,
+  type BuildSpellPlan,
+  type BuildSpellReplacement,
+} from '../utils/spells'
 import { Panel } from './Panel'
 
 interface BuildLibraryProps {
@@ -14,6 +21,10 @@ interface BuildLibraryProps {
 
 const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
 
+type BuildFormLevel = BuildLevel & { spellPlan: BuildSpellPlan }
+
+type BuildFormState = Omit<Build, 'id'> & { levels: BuildFormLevel[] }
+
 function splitFeatureList(raw?: string | null): string[] {
   if (!raw) {
     return []
@@ -24,7 +35,7 @@ function splitFeatureList(raw?: string | null): string[] {
     .filter((entry) => entry.length > 0 && entry !== '-')
 }
 
-function createEmptyLevel(level = 1): BuildLevel {
+function createEmptyLevel(level = 1): BuildFormLevel {
   return {
     level,
     spells: '',
@@ -32,6 +43,50 @@ function createEmptyLevel(level = 1): BuildLevel {
     subclass_choice: '',
     multiclass_choice: '',
     note: '',
+    spellPlan: createEmptyBuildSpellPlan(),
+  }
+}
+
+function getKnownSpellsBeforeLevel(levels: BuildFormLevel[], index: number): string[] {
+  const known: string[] = []
+  for (let i = 0; i < index; i += 1) {
+    const { learned, replacements } = levels[i].spellPlan
+    for (const spell of learned) {
+      if (!known.includes(spell)) {
+        known.push(spell)
+      }
+    }
+    for (const replacement of replacements) {
+      if (replacement.previous) {
+        const position = known.indexOf(replacement.previous)
+        if (position >= 0) {
+          known.splice(position, 1)
+        }
+      }
+      if (replacement.next && !known.includes(replacement.next)) {
+        known.push(replacement.next)
+      }
+    }
+  }
+  return known
+}
+
+function filterSpellPlanForOptions(plan: BuildSpellPlan, availableSpells: string[]): BuildSpellPlan {
+  if (!availableSpells.length) {
+    return {
+      ...plan,
+      learned: [],
+      replacements: plan.replacements.map((entry) => ({ previous: entry.previous, next: '' })),
+    }
+  }
+  const allowed = new Set(availableSpells)
+  return {
+    ...plan,
+    learned: plan.learned.filter((spell) => allowed.has(spell)),
+    replacements: plan.replacements.map((entry) => ({
+      previous: entry.previous,
+      next: entry.next && allowed.has(entry.next) ? entry.next : '',
+    })),
   }
 }
 
@@ -44,7 +99,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isFormVisible, setIsFormVisible] = useState(false)
-  const [form, setForm] = useState<Omit<Build, 'id'>>({
+  const [form, setForm] = useState<BuildFormState>({
     name: '',
     race: '',
     class_name: '',
@@ -82,6 +137,18 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }, [raceOptions])
 
   const classOptions = useMemo(() => classes.map((klass) => klass.name), [classes])
+
+  const spellsByClass = useMemo(() => {
+    const map = new Map<string, Map<number, string[]>>()
+    for (const klass of classes) {
+      const levelMap = new Map<number, string[]>()
+      for (const group of klass.spells_learned ?? []) {
+        levelMap.set(group.level, [...group.spells])
+      }
+      map.set(klass.name, levelMap)
+    }
+    return map
+  }, [classes])
 
   const selectedClass = useMemo(
     () => classes.find((klass) => klass.name === form.class_name) ?? null,
@@ -134,13 +201,14 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }, [selectedSubclass])
 
   async function handleSubmit() {
+    const { levels, ...rest } = form
     const payload: Omit<Build, 'id'> = {
-      ...form,
-      levels: [...form.levels]
+      ...rest,
+      levels: [...levels]
         .filter((entry) => entry.level)
         .map((entry) => ({
           level: entry.level,
-          spells: entry.spells?.trim() ?? '',
+          spells: serializeBuildSpellPlan(entry.spellPlan),
           feats: entry.feats?.trim() ?? '',
           subclass_choice: entry.subclass_choice?.trim() ?? '',
           multiclass_choice: entry.multiclass_choice?.trim() ?? '',
@@ -173,6 +241,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
             subclass_choice: level.subclass_choice ?? '',
             multiclass_choice: level.multiclass_choice ?? '',
             note: level.note ?? '',
+            spellPlan: parseBuildSpellPlan(level.spells ?? ''),
           }))
         : [createEmptyLevel()],
     })
@@ -181,11 +250,78 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     setIsFormVisible(true)
   }
 
-  function updateLevel(index: number, updates: Partial<BuildLevel>) {
+  function updateLevel(index: number, updates: Partial<BuildFormLevel>) {
     setForm((state) => {
-      const nextLevels = state.levels.map((level, i) => (i === index ? { ...level, ...updates } : level))
+      const nextLevels = state.levels.map((level, i) => {
+        if (i !== index) {
+          return level
+        }
+        const merged: BuildFormLevel = { ...level, ...updates }
+        if (updates.level !== undefined || updates.multiclass_choice !== undefined) {
+          const className = merged.multiclass_choice || state.class_name || ''
+          const availableSpells = className ? spellsByClass.get(className)?.get(merged.level) ?? [] : []
+          merged.spellPlan = filterSpellPlanForOptions(merged.spellPlan, availableSpells)
+        }
+        return merged
+      })
       return { ...state, levels: nextLevels }
     })
+  }
+
+  function updateSpellPlan(index: number, updater: (plan: BuildSpellPlan) => BuildSpellPlan) {
+    setForm((state) => {
+      const nextLevels = state.levels.map((level, i) =>
+        i === index
+          ? {
+              ...level,
+              spellPlan: updater(level.spellPlan),
+            }
+          : level,
+      )
+      return { ...state, levels: nextLevels }
+    })
+  }
+
+  function handleToggleLearnedSpell(index: number, spell: string) {
+    updateSpellPlan(index, (plan) => {
+      const isSelected = plan.learned.includes(spell)
+      const nextLearned = isSelected
+        ? plan.learned.filter((entry) => entry !== spell)
+        : [...plan.learned, spell].sort((a, b) => a.localeCompare(b, 'fr'))
+      return { ...plan, learned: nextLearned }
+    })
+  }
+
+  function handleAddReplacement(index: number) {
+    updateSpellPlan(index, (plan) => ({
+      ...plan,
+      replacements: [...plan.replacements, { previous: '', next: '' }],
+    }))
+  }
+
+  function handleUpdateReplacement(
+    levelIndex: number,
+    replacementIndex: number,
+    updates: Partial<BuildSpellReplacement>,
+  ) {
+    updateSpellPlan(levelIndex, (plan) => ({
+      ...plan,
+      replacements: plan.replacements.map((entry, index) =>
+        index === replacementIndex
+          ? {
+              previous: updates.previous ?? entry.previous,
+              next: updates.next ?? entry.next,
+            }
+          : entry,
+      ),
+    }))
+  }
+
+  function handleRemoveReplacement(levelIndex: number, replacementIndex: number) {
+    updateSpellPlan(levelIndex, (plan) => ({
+      ...plan,
+      replacements: plan.replacements.filter((_, index) => index !== replacementIndex),
+    }))
   }
 
   function addLevel() {
@@ -306,11 +442,24 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                     value={form.class_name ?? ''}
                     onChange={(event) => {
                       const nextClass = event.target.value
-                      setForm((state) => ({
-                        ...state,
-                        class_name: nextClass,
-                        subclass: '',
-                      }))
+                      setForm((state) => {
+                        const nextLevels = state.levels.map((level) => {
+                          if (level.multiclass_choice) {
+                            return level
+                          }
+                          const availableSpells = spellsByClass.get(nextClass)?.get(level.level) ?? []
+                          return {
+                            ...level,
+                            spellPlan: filterSpellPlanForOptions(level.spellPlan, availableSpells),
+                          }
+                        })
+                        return {
+                          ...state,
+                          class_name: nextClass,
+                          subclass: '',
+                          levels: nextLevels,
+                        }
+                      })
                     }}
                   >
                     <option value="">—</option>
@@ -394,7 +543,12 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   </button>
                 </div>
                 {form.levels.map((level, index) => {
-                  const classProgression = selectedClass?.progression.find((entry) => entry.level === level.level)
+                  const plan = level.spellPlan
+                  const levelClass =
+                    level.multiclass_choice && level.multiclass_choice !== ''
+                      ? classes.find((klass) => klass.name === level.multiclass_choice) ?? null
+                      : selectedClass
+                  const classProgression = levelClass?.progression.find((entry) => entry.level === level.level)
                   const classFeatureOptions = splitFeatureList(classProgression?.features)
                   const progressionHighlights = getProgressionHighlights(classProgression)
                   const subclassFeatures = subclassFeaturesByLevel.get(level.level) ?? []
@@ -406,9 +560,21 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                         feature,
                       ),
                     ) || Boolean(classProgression?.cantrips_known || classProgression?.spells_known)
-                  const displayChoiceField = shouldSuggestChoices || Boolean(level.spells)
+                  const classNameForLevel = level.multiclass_choice || form.class_name || ''
+                  const availableSpells = classNameForLevel
+                    ? spellsByClass.get(classNameForLevel)?.get(level.level) ?? []
+                    : []
+                  const knownSpellsBefore = getKnownSpellsBeforeLevel(form.levels, index)
+                  const hasSpellNotes =
+                    Boolean(plan.summary.trim()) || plan.learned.length > 0 || plan.replacements.length > 0
+                  const displayChoiceField = shouldSuggestChoices || hasSpellNotes
                   const displayFeatField = shouldSuggestFeat || Boolean(level.feats)
                   const displaySubclassChoice = shouldSuggestSubclassChoice || Boolean(level.subclass_choice)
+                  const displaySpellsSection =
+                    availableSpells.length > 0 ||
+                    plan.learned.length > 0 ||
+                    plan.replacements.length > 0 ||
+                    knownSpellsBefore.length > 0
 
                   return (
                     <div key={`${level.level}-${index}`} className="build-form__level">
@@ -437,7 +603,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                               </div>
                             ))}
                           </dl>
-                        ) : selectedClass ? (
+                        ) : levelClass ? (
                           <p className="build-form__hint build-form__hint--muted">
                             Aucun changement majeur pour ce niveau.
                           </p>
@@ -463,13 +629,109 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                         </p>
                       )}
 
+                      {displaySpellsSection ? (
+                        <div className="build-form__level-section build-form__level-section--spells">
+                          <h5>Sorts à apprendre ou à ajuster</h5>
+                          {availableSpells.length ? (
+                            <div className="build-form__spell-options">
+                              {availableSpells.map((spell) => (
+                                <label key={spell} className="build-form__spell-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={plan.learned.includes(spell)}
+                                    onChange={() => handleToggleLearnedSpell(index, spell)}
+                                  />
+                                  <span>{spell}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="build-form__hint build-form__hint--muted">
+                              Aucun sort supplémentaire n'est proposé pour ce niveau.
+                            </p>
+                          )}
+                          {plan.learned.length && !availableSpells.length ? (
+                            <p className="build-form__hint build-form__hint--muted">
+                              Ces sorts ont été ajoutés manuellement pour ce niveau.
+                            </p>
+                          ) : null}
+                          {knownSpellsBefore.length || plan.replacements.length ? (
+                            <div className="build-form__spell-replacements">
+                              <h6>Remplacements possibles</h6>
+                              {plan.replacements.map((replacement, replacementIndex) => (
+                                <div
+                                  key={`replacement-${replacementIndex}`}
+                                  className="build-form__spell-replacement-row"
+                                >
+                                  <select
+                                    value={replacement.previous}
+                                    onChange={(event) =>
+                                      handleUpdateReplacement(index, replacementIndex, {
+                                        previous: event.target.value,
+                                      })
+                                    }
+                                  >
+                                    <option value="">—</option>
+                                    {knownSpellsBefore.map((spell) => (
+                                      <option key={spell} value={spell}>
+                                        {spell}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span aria-hidden="true">→</span>
+                                  <select
+                                    value={replacement.next}
+                                    onChange={(event) =>
+                                      handleUpdateReplacement(index, replacementIndex, {
+                                        next: event.target.value,
+                                      })
+                                    }
+                                  >
+                                    <option value="">—</option>
+                                    {availableSpells.map((spell) => (
+                                      <option key={spell} value={spell}>
+                                        {spell}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    className="link link--danger"
+                                    onClick={() => handleRemoveReplacement(index, replacementIndex)}
+                                  >
+                                    Retirer
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                className="link"
+                                onClick={() => handleAddReplacement(index)}
+                                disabled={!knownSpellsBefore.length}
+                              >
+                                Ajouter un remplacement
+                              </button>
+                              <p className="build-form__hint build-form__hint--muted">
+                                Les lanceurs de sorts peuvent échanger un sort connu contre un nouveau lors d'un passage de
+                                niveau.
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
                       {displayChoiceField ? (
                         <label className="build-form__level-summary">
                           Choix imposés par le niveau
                           <textarea
                             rows={2}
-                            value={level.spells ?? ''}
-                            onChange={(event) => updateLevel(index, { spells: event.target.value })}
+                            value={plan.summary}
+                            onChange={(event) =>
+                              updateSpellPlan(index, (current) => ({
+                                ...current,
+                                summary: event.target.value,
+                              }))
+                            }
                             placeholder="Notez les sorts appris, styles de combat, invocations, maîtrises…"
                           />
                         </label>

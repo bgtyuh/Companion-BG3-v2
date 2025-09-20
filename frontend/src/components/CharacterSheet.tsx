@@ -18,7 +18,7 @@ import type {
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { getIconUrl, normalizeName, type IconCategory } from '../utils/icons'
 import { getProgressionHighlights } from '../utils/progression'
-import { getSpellLevelLabel, sortSpellsByLevel } from '../utils/spells'
+import { describeBuildSpellPlan, getSpellLevelLabel, parseBuildSpellPlan, sortSpellsByLevel } from '../utils/spells'
 import { IconCard } from './IconCard'
 import { Panel } from './Panel'
 
@@ -427,6 +427,20 @@ export function CharacterSheet({
     [spells, member],
   )
 
+  const nextLevelTarget = member ? Math.min(12, member.level + 1) : null
+  const nextStep = useMemo(
+    () =>
+      build && nextLevelTarget != null
+        ? build.levels.find((level) => level.level === nextLevelTarget) ?? null
+        : null,
+    [build, nextLevelTarget],
+  )
+  const nextStepSpellPlan = useMemo(
+    () => (nextStep ? parseBuildSpellPlan(nextStep.spells ?? '') : null),
+    [nextStep],
+  )
+  const nextStepSpellSummary = nextStepSpellPlan ? describeBuildSpellPlan(nextStepSpellPlan) : ''
+
   if (!member) {
     return (
       <Panel title="Fiche de personnage" subtitle="Sélectionnez un héros pour consulter ses détails">
@@ -436,7 +450,6 @@ export function CharacterSheet({
   }
   const gear = member.equipment ?? {}
   const nextLevel = Math.min(12, member.level + 1)
-  const nextStep = build?.levels.find((level) => level.level === nextLevel)
 
   return (
     <Panel
@@ -493,7 +506,7 @@ export function CharacterSheet({
                 <div className="character-sheet__next-step">
                   <h5>Préparez le niveau {nextLevel}</h5>
                   <p>
-                    <strong>Sorts :</strong> {nextStep.spells || '—'}
+                    <strong>Sorts :</strong> {nextStepSpellSummary || '—'}
                   </p>
                   <p>
                     <strong>Dons :</strong> {nextStep.feats || '—'}

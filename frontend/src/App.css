@@ -639,6 +639,56 @@ button:focus-visible {
   gap: 0.4rem;
 }
 
+.build-form__level-section--spells {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: rgba(8, 16, 32, 0.4);
+  gap: 0.6rem;
+}
+
+.build-form__spell-options {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.build-form__spell-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.build-form__spell-option input {
+  width: auto;
+}
+
+.build-form__spell-replacements {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.build-form__spell-replacement-row {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, auto));
+  align-items: center;
+}
+
+.build-form__spell-replacement-row span {
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.build-form__spell-replacement-row button {
+  justify-self: start;
+}
+
+.build-form__spell-replacements button {
+  justify-self: start;
+}
+
 .build-form__level-summary {
   display: grid;
   gap: 0.4rem;

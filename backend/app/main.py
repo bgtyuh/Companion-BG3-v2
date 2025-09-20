@@ -765,6 +765,10 @@ def list_classes() -> List[schemas.CharacterClass]:
         "SELECT subclass_name, level, feature_name, feature_description FROM Subclasses_Features",
     )
     progressions = fetch_all("classes", "SELECT * FROM Class_Progression")
+    class_spells = fetch_all(
+        "classes",
+        "SELECT class_name, level, spell_name FROM Class_Spells_Learned",
+    )
 
     subclass_feature_map: Dict[str, List[schemas.SubclassFeature]] = defaultdict(list)
     for row in subclass_features:
@@ -787,6 +791,7 @@ def list_classes() -> List[schemas.CharacterClass]:
         )
 
     progression_map: Dict[str, List[schemas.ClassProgressionEntry]] = defaultdict(list)
+    spells_learned_map: Dict[str, Dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))
     for row in progressions:
         progression_map[row["class_name"]].append(
             schemas.ClassProgressionEntry(
@@ -816,6 +821,14 @@ def list_classes() -> List[schemas.CharacterClass]:
             )
         )
 
+    for row in class_spells:
+        class_name = row.get("class_name")
+        level = row.get("level")
+        spell_name = row.get("spell_name")
+        if not class_name or level is None or not spell_name:
+            continue
+        spells_learned_map[class_name][int(level)].add(spell_name)
+
     result: List[schemas.CharacterClass] = []
     for row in classes:
         result.append(
@@ -835,6 +848,10 @@ def list_classes() -> List[schemas.CharacterClass]:
                     progression_map.get(row.get("name"), []),
                     key=lambda entry: entry.level,
                 ),
+                spells_learned=[
+                    schemas.ClassSpellList(level=level, spells=sorted(spells))
+                    for level, spells in sorted(spells_learned_map.get(row.get("name"), {}).items())
+                ],
             )
         )
     return result

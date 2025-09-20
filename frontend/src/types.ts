@@ -231,6 +231,11 @@ export interface ClassProgressionEntry {
   invocations_known?: number | null
 }
 
+export interface ClassSpellList {
+  level: number
+  spells: string[]
+}
+
 export interface CharacterClass {
   name: string
   description?: string | null
@@ -244,6 +249,7 @@ export interface CharacterClass {
   starting_equipment?: string | null
   subclasses: Subclass[]
   progression: ClassProgressionEntry[]
+  spells_learned: ClassSpellList[]
 }
 
 export interface Background {

@@ -9,6 +9,7 @@ import {
   type BuildSpellPlan,
   type BuildSpellReplacement,
 } from '../utils/spells'
+import { STATIC_SPELL_LIMITS } from '../data/spellLimits'
 import { Panel } from './Panel'
 
 interface BuildLibraryProps {
@@ -190,6 +191,14 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     const map = new Map<string, Map<number, number>>()
     for (const klass of classes) {
       const levelMap = new Map<number, number>()
+
+      const staticLimits = STATIC_SPELL_LIMITS[klass.name as keyof typeof STATIC_SPELL_LIMITS]
+      if (staticLimits) {
+        for (const [level, limit] of Object.entries(staticLimits)) {
+          levelMap.set(Number.parseInt(level, 10), limit)
+        }
+      }
+
       const sortedProgression = [...(klass.progression ?? [])].sort((a, b) => a.level - b.level)
       let previousSpellsKnown = 0
       let previousCantripsKnown = 0

@@ -86,8 +86,8 @@ function normaliseDamageType(value: string | null | undefined): string | null {
 }
 
 function extractDamageTypesFromProperty(property: SpellProperty): string[] {
-  if (!property.property_value) return []
-  const matches = property.property_value.match(DAMAGE_REGEX)
+  if (!property.value) return []
+  const matches = property.value.match(DAMAGE_REGEX)
   if (!matches) return []
   const found = new Set<string>()
   for (const match of matches) {
@@ -103,7 +103,7 @@ function extractDamageTypesFromSpell(spell: Spell): string[] {
   if (!spell.properties?.length) return []
   const damageTypes = new Set<string>()
   for (const property of spell.properties) {
-    if (property.property_name && property.property_name.toLowerCase() === 'damage') {
+    if (property.name && property.name.toLowerCase() === 'damage') {
       for (const type of extractDamageTypesFromProperty(property)) {
         damageTypes.add(type)
       }

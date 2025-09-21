@@ -208,7 +208,8 @@ class BuildErrorHandlingTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "bg3_companion.db"
-            shutil.copy(Path("data/bg3_companion.db"), db_path)
+            fixture_db = Path(__file__).resolve().parents[2] / "data" / "bg3_companion.db"
+            shutil.copy(fixture_db, db_path)
 
             with sqlite3.connect(db_path) as conn:
                 before_builds = conn.execute("SELECT COUNT(*) FROM builds").fetchone()[0]

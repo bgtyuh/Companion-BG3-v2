@@ -23,7 +23,7 @@ interface BuildLibraryProps {
 
 const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
 
-type BuildFormLevel = BuildLevel & { spellPlan: BuildSpellPlan }
+type BuildFormLevel = BuildLevel & { spellPlan: BuildSpellPlan; manualSpellDraft?: string }
 
 type BuildFormState = Omit<Build, 'id' | 'levels'> & { levels: BuildFormLevel[] }
 
@@ -129,6 +129,7 @@ function createEmptyLevel(level = 1): BuildFormLevel {
     multiclass_choice: '',
     note: '',
     spellPlan: createEmptyBuildSpellPlan(),
+    manualSpellDraft: '',
   }
 }
 
@@ -164,7 +165,7 @@ function filterSpellPlanForOptions(plan: BuildSpellPlan, availableSpells: string
   if (!availableSpells.length) {
     return {
       ...plan,
-      learned: [],
+      learned: [...plan.learned],
       replacements: plan.replacements.map((entry) => ({ previous: entry.previous, next: '' })),
     }
   }
@@ -405,6 +406,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
             multiclass_choice: level.multiclass_choice ?? '',
             note: level.note ?? '',
             spellPlan: parseBuildSpellPlan(level.spells ?? ''),
+            manualSpellDraft: '',
           }))
         : [createEmptyLevel()],
     })
@@ -461,6 +463,68 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       })
       return { ...state, levels: nextLevels }
     })
+  }
+
+  function handleManualSpellDraftChange(index: number, value: string) {
+    updateLevel(index, { manualSpellDraft: value })
+  }
+
+  function handleAddManualSpell(index: number) {
+    setForm((state) => {
+      const currentLevel = state.levels[index]
+      if (!currentLevel) {
+        return state
+      }
+      const draft = (currentLevel.manualSpellDraft ?? '').trim()
+      if (!draft) {
+        return state
+      }
+      const classNameForLevel = currentLevel.multiclass_choice || state.class_name || ''
+      const limit = classNameForLevel
+        ? spellLimitsByClass.get(classNameForLevel)?.get(currentLevel.level)
+        : undefined
+      if (
+        limit !== undefined &&
+        limit !== null &&
+        currentLevel.spellPlan.learned.length >= limit
+      ) {
+        return state
+      }
+      const alreadyKnown = currentLevel.spellPlan.learned.some(
+        (spell) => spell.localeCompare(draft, 'fr', { sensitivity: 'base' }) === 0,
+      )
+      if (alreadyKnown) {
+        return {
+          ...state,
+          levels: state.levels.map((level, levelIndex) =>
+            levelIndex === index ? { ...level, manualSpellDraft: '' } : level,
+          ),
+        }
+      }
+      const nextLearned = [...currentLevel.spellPlan.learned, draft].sort((a, b) =>
+        a.localeCompare(b, 'fr'),
+      )
+      const nextLevels = state.levels.map((level, levelIndex) =>
+        levelIndex === index
+          ? {
+              ...level,
+              manualSpellDraft: '',
+              spellPlan: {
+                ...level.spellPlan,
+                learned: nextLearned,
+              },
+            }
+          : level,
+      )
+      return { ...state, levels: nextLevels }
+    })
+  }
+
+  function handleRemoveManualSpell(index: number, spell: string) {
+    updateSpellPlan(index, (plan) => ({
+      ...plan,
+      learned: plan.learned.filter((entry) => entry !== spell),
+    }))
   }
 
   function updateSpellPlan(index: number, updater: (plan: BuildSpellPlan) => BuildSpellPlan) {
@@ -855,6 +919,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                     }
                   }
                   const knownSpellsBefore = getKnownSpellsBeforeLevel(form.levels, index)
+                  const manualSpellDraft = level.manualSpellDraft ?? ''
                   const displayFeatField = shouldSuggestFeat || Boolean(level.feats)
                   const displaySpellsSection =
                     availableSpells.length > 0 ||
@@ -931,9 +996,48 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                             <p className={spellLimitMessageClass}>{spellLimitMessage}</p>
                           ) : null}
                           {plan.learned.length && !availableSpells.length ? (
-                            <p className="build-form__hint build-form__hint--muted">
-                              Ces sorts ont été ajoutés manuellement pour ce niveau.
-                            </p>
+                            <div className="build-form__manual-spell-list">
+                              <p className="build-form__hint build-form__hint--muted">
+                                Ces sorts ont été ajoutés manuellement pour ce niveau.
+                              </p>
+                              <ul>
+                                {plan.learned.map((spell) => (
+                                  <li key={spell}>
+                                    <span>{spell}</span>
+                                    <button
+                                      type="button"
+                                      className="link link--danger"
+                                      onClick={() => handleRemoveManualSpell(index, spell)}
+                                    >
+                                      Retirer
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {!availableSpells.length ? (
+                            <div className="build-form__manual-spell-entry">
+                              <label>
+                                Ajouter un sort manuellement
+                                <div className="build-form__manual-spell-controls">
+                                  <input
+                                    type="text"
+                                    value={manualSpellDraft}
+                                    onChange={(event) =>
+                                      handleManualSpellDraftChange(index, event.target.value)
+                                    }
+                                    placeholder="Nom du sort"
+                                  />
+                                  <button type="button" className="link" onClick={() => handleAddManualSpell(index)}>
+                                    Ajouter
+                                  </button>
+                                </div>
+                                <p className="build-form__hint build-form__hint--muted">
+                                  Utilisez ce champ lorsque aucun catalogue de sorts n'est disponible pour ce niveau.
+                                </p>
+                              </label>
+                            </div>
                           ) : null}
                           {knownSpellsBefore.length || plan.replacements.length ? (
                             <div className="build-form__spell-replacements">

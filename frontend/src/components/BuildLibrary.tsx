@@ -907,9 +907,18 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                         />
                       </label>
 
-                      <button type="button" className="link link--danger" onClick={() => removeLevel(index)}>
-                        Retirer ce palier
-                      </button>
+                      <div className="build-form__level-actions">
+                        <button
+                          type="button"
+                          className="link link--danger"
+                          onClick={() => removeLevel(index)}
+                        >
+                          Retirer ce palier
+                        </button>
+                        <button type="button" className="link" onClick={addLevel}>
+                          Ajouter un niveau
+                        </button>
+                      </div>
                     </div>
                   )
                 })}

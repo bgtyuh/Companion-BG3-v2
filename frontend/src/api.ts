@@ -63,6 +63,50 @@ function resolveApiBaseUrl(): string {
 const rawBaseUrl = resolveApiBaseUrl()
 const API_BASE_URL = rawBaseUrl.replace(/\/$/, '')
 
+interface BackgroundSkillRaw {
+  name?: string | null
+}
+
+interface BackgroundCharacterRaw {
+  name?: string | null
+}
+
+interface BackgroundNoteRaw {
+  note?: string | null
+}
+
+type BackgroundResponseRaw = Omit<Background, 'skills' | 'characters' | 'notes'> & {
+  skills: BackgroundSkillRaw[]
+  characters: BackgroundCharacterRaw[]
+  notes: BackgroundNoteRaw[]
+}
+
+function normalizeBackgroundNameList(entries: BackgroundSkillRaw[] | BackgroundCharacterRaw[]): string[] {
+  const result: string[] = []
+  for (const entry of entries) {
+    if (entry && typeof entry.name === 'string') {
+      const normalized = entry.name.trim()
+      if (normalized) {
+        result.push(normalized)
+      }
+    }
+  }
+  return result
+}
+
+function normalizeBackgroundNotes(entries: BackgroundNoteRaw[]): string[] {
+  const result: string[] = []
+  for (const entry of entries) {
+    if (entry && typeof entry.note === 'string') {
+      const normalized = entry.note.trim()
+      if (normalized) {
+        result.push(normalized)
+      }
+    }
+  }
+  return result
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response
 
@@ -194,7 +238,18 @@ export const api = {
   getSpells: () => request<Spell[]>('/api/spells'),
   getRaces: () => request<Race[]>('/api/races'),
   getClasses: () => request<CharacterClass[]>('/api/classes'),
-  getBackgrounds: () => request<Background[]>('/api/backgrounds'),
+  getBackgrounds: async () => {
+    const rawBackgrounds = await request<BackgroundResponseRaw[]>('/api/backgrounds')
+    return rawBackgrounds.map((background): Background => {
+      const { skills, characters, notes, ...rest } = background
+      return {
+        ...rest,
+        skills: normalizeBackgroundNameList(skills),
+        characters: normalizeBackgroundNameList(characters),
+        notes: normalizeBackgroundNotes(notes),
+      }
+    })
+  },
   getFeats: () => request<Feat[]>('/api/feats'),
   getAbilities: () => request<Ability[]>('/api/abilities'),
 }

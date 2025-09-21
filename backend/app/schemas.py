@@ -56,6 +56,7 @@ class BuildBase(BaseModel):
     class_name: Optional[str] = Field(default=None, alias="class")
     subclass: Optional[str] = None
     notes: Optional[str] = None
+    skill_choices: List[str] = Field(default_factory=list)
     levels: List[BuildLevel] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}

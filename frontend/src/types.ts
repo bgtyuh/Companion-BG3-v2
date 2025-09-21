@@ -24,6 +24,7 @@ export interface Build {
   class_name?: string | null
   subclass?: string | null
   notes?: string | null
+  skill_choices: string[]
   levels: BuildLevel[]
 }
 

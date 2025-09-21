@@ -68,6 +68,58 @@ function matchesKeywords(value: string, keywords: readonly string[]): boolean {
 
 const FEAT_KEYWORDS = ['feat', 'improvement', 'don', 'asi', 'amelioration'] as const
 
+interface SkillProficiencyInfo {
+  limit: number | null
+  options: string[]
+}
+
+function normalizeSkillSelections(skills: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const skill of skills) {
+    const trimmed = skill.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+  return normalized
+}
+
+const SKILL_LIMIT_REGEX = /choose\s+(\d+)/i
+
+function parseSkillProficiencies(value?: string | null): SkillProficiencyInfo {
+  if (!value) {
+    return { limit: null, options: [] }
+  }
+  const normalized = value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return { limit: null, options: [] }
+  }
+  const limitMatch = normalized.match(SKILL_LIMIT_REGEX)
+  const limit = limitMatch ? Number.parseInt(limitMatch[1], 10) : null
+  let optionsSection = normalized
+  const colonIndex = normalized.indexOf(':')
+  if (colonIndex >= 0) {
+    optionsSection = normalized.slice(colonIndex + 1)
+  } else if (limitMatch?.index !== undefined) {
+    optionsSection = normalized.slice(limitMatch.index + limitMatch[0].length)
+  }
+  optionsSection = optionsSection
+    .replace(/\b(?:from|among|parmi|depuis)\b/gi, ' ')
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/[.;]/g, ' ')
+  const rawOptions = optionsSection
+    .split(/[,/]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+  return {
+    limit,
+    options: normalizeSkillSelections(rawOptions),
+  }
+}
+
 function createEmptyLevel(level = 1): BuildFormLevel {
   return {
     level,
@@ -142,10 +194,19 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     class_name: '',
     subclass: '',
     notes: '',
+    skill_choices: [],
     levels: [createEmptyLevel()],
   })
   function resetForm(hideForm = false) {
-    setForm({ name: '', race: '', class_name: '', subclass: '', notes: '', levels: [createEmptyLevel()] })
+    setForm({
+      name: '',
+      race: '',
+      class_name: '',
+      subclass: '',
+      notes: '',
+      skill_choices: [],
+      levels: [createEmptyLevel()],
+    })
     setIsEditing(false)
     setSelectedId(null)
     if (hideForm) {
@@ -174,6 +235,14 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }, [raceOptions])
 
   const classOptions = useMemo(() => classes.map((klass) => klass.name), [classes])
+
+  const skillOptionsByClass = useMemo(() => {
+    const map = new Map<string, SkillProficiencyInfo>()
+    for (const klass of classes) {
+      map.set(klass.name, parseSkillProficiencies(klass.skill_proficiencies))
+    }
+    return map
+  }, [classes])
 
   const spellsByClass = useMemo(() => {
     const map = new Map<string, Map<number, string[]>>()
@@ -237,6 +306,27 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     [selectedClass, form.subclass],
   )
 
+  const selectedClassSkillInfo = useMemo<SkillProficiencyInfo>(
+    () =>
+      selectedClass
+        ? skillOptionsByClass.get(selectedClass.name) ?? { limit: null, options: [] }
+        : { limit: null, options: [] },
+    [selectedClass, skillOptionsByClass],
+  )
+
+  const availableSkillOptions = selectedClassSkillInfo.options
+  const selectedSkillsForClass = form.skill_choices.filter((skill) =>
+    availableSkillOptions.includes(skill),
+  )
+  const extraSkillSelections = form.skill_choices.filter(
+    (skill) => !availableSkillOptions.includes(skill),
+  )
+  const skillSelectionLimit = selectedClassSkillInfo.limit
+  const remainingSkillChoices =
+    skillSelectionLimit != null ? skillSelectionLimit - selectedSkillsForClass.length : null
+  const hasReachedSkillLimit =
+    remainingSkillChoices != null ? remainingSkillChoices <= 0 : false
+
   const classHighlights = useMemo(() => {
     if (!selectedClass) return []
     const entries: Array<{ label: string; value: string | null | undefined }> = [
@@ -245,9 +335,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       { label: 'Caractéristiques clés', value: selectedClass.key_abilities },
       { label: 'Jets de sauvegarde', value: selectedClass.saving_throw_proficiencies },
       { label: 'Maîtrises d’équipement', value: selectedClass.equipment_proficiencies },
-      { label: 'Compétences', value: selectedClass.skill_proficiencies },
       { label: "Caractéristique d'incantation", value: selectedClass.spellcasting_ability },
-      { label: 'Équipement de départ', value: selectedClass.starting_equipment },
     ]
     return entries
       .map(({ label, value }) => {
@@ -273,9 +361,11 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }, [selectedSubclass])
 
   async function handleSubmit() {
-    const { levels, ...rest } = form
+    const { levels, skill_choices, ...rest } = form
+    const normalizedSkillChoices = normalizeSkillSelections(skill_choices)
     const payload: Omit<Build, 'id'> = {
       ...rest,
+      skill_choices: normalizedSkillChoices,
       levels: [...levels]
         .filter((entry) => entry.level)
         .map((entry) => ({
@@ -304,6 +394,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       class_name: build.class_name ?? '',
       subclass: build.subclass ?? '',
       notes: build.notes ?? '',
+      skill_choices: normalizeSkillSelections(build.skill_choices ?? []),
       levels: build.levels.length
         ? build.levels.map((level) => ({
             id: level.id,
@@ -320,6 +411,38 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     setSelectedId(build.id)
     setIsEditing(true)
     setIsFormVisible(true)
+  }
+
+  function handleToggleSkillChoice(skill: string) {
+    setForm((state) => {
+      const className = state.class_name ?? ''
+      const details = className
+        ? skillOptionsByClass.get(className) ?? { limit: null, options: [] }
+        : { limit: null, options: [] }
+      if (!details.options.includes(skill)) {
+        return state
+      }
+      const withinOptions = state.skill_choices.filter((entry) => details.options.includes(entry))
+      const outsideOptions = state.skill_choices.filter(
+        (entry) => !details.options.includes(entry),
+      )
+      const isSelected = withinOptions.includes(skill)
+      if (!isSelected) {
+        if (details.limit != null && withinOptions.length >= details.limit) {
+          return state
+        }
+        const nextWithin = normalizeSkillSelections([...withinOptions, skill])
+        return {
+          ...state,
+          skill_choices: normalizeSkillSelections([...outsideOptions, ...nextWithin]),
+        }
+      }
+      const nextWithin = withinOptions.filter((entry) => entry !== skill)
+      return {
+        ...state,
+        skill_choices: normalizeSkillSelections([...outsideOptions, ...nextWithin]),
+      }
+    })
   }
 
   function updateLevel(index: number, updates: Partial<BuildFormLevel>) {
@@ -537,27 +660,31 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   Classe
                   <select
                     value={form.class_name ?? ''}
-                    onChange={(event) => {
-                      const nextClass = event.target.value
-                      setForm((state) => {
-                        const nextLevels: BuildFormLevel[] = state.levels.map((level): BuildFormLevel => {
-                          if (level.multiclass_choice) {
-                            return level
-                          }
-                          const availableSpells = spellsByClass.get(nextClass)?.get(level.level) ?? []
-                          return {
-                            ...level,
-                            spellPlan: filterSpellPlanForOptions(level.spellPlan, availableSpells),
-                          }
-                        })
+                  onChange={(event) => {
+                    const nextClass = event.target.value
+                    setForm((state) => {
+                      const nextLevels: BuildFormLevel[] = state.levels.map((level): BuildFormLevel => {
+                        if (level.multiclass_choice) {
+                          return level
+                        }
+                        const availableSpells = spellsByClass.get(nextClass)?.get(level.level) ?? []
                         return {
-                          ...state,
-                          class_name: nextClass,
-                          subclass: '',
-                          levels: nextLevels,
+                          ...level,
+                          spellPlan: filterSpellPlanForOptions(level.spellPlan, availableSpells),
                         }
                       })
-                    }}
+                      const allowedSkillOptions = skillOptionsByClass.get(nextClass)?.options ?? []
+                      return {
+                        ...state,
+                        class_name: nextClass,
+                        subclass: '',
+                        skill_choices: normalizeSkillSelections(
+                          state.skill_choices.filter((skill) => allowedSkillOptions.includes(skill)),
+                        ),
+                        levels: nextLevels,
+                      }
+                    })
+                  }}
                   >
                     <option value="">—</option>
                     {classOptions.map((className) => (
@@ -613,6 +740,47 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                         </div>
                       ))}
                     </dl>
+                  ) : null}
+                  {availableSkillOptions.length ? (
+                    <div className="build-form__skill-choices">
+                      <div className="build-form__skill-choices-header">
+                        <h5>Compétences de classe</h5>
+                        <p className="build-form__hint build-form__hint--muted">
+                          {skillSelectionLimit != null
+                            ? `Choisissez jusqu'à ${skillSelectionLimit} compétence${skillSelectionLimit > 1 ? 's' : ''}.`
+                            : 'Sélectionnez les compétences que vous visez avec ce build.'}
+                        </p>
+                      </div>
+                      <div className="build-form__skill-options">
+                        {availableSkillOptions.map((skill) => {
+                          const isChecked = selectedSkillsForClass.includes(skill)
+                          const disableAdditional = !isChecked && hasReachedSkillLimit
+                          return (
+                            <label key={skill} className="build-form__skill-option">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={disableAdditional}
+                                onChange={() => handleToggleSkillChoice(skill)}
+                              />
+                              <span>{skill}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      {skillSelectionLimit != null ? (
+                        <p className="build-form__hint">
+                          {remainingSkillChoices != null && remainingSkillChoices > 0
+                            ? `Vous pouvez encore choisir ${remainingSkillChoices} compétence${remainingSkillChoices > 1 ? 's' : ''}.`
+                            : `Limite atteinte : ${selectedSkillsForClass.length} compétence${selectedSkillsForClass.length > 1 ? 's' : ''} sélectionnée${selectedSkillsForClass.length > 1 ? 's' : ''}.`}
+                        </p>
+                      ) : null}
+                      {extraSkillSelections.length ? (
+                        <p className="build-form__hint build-form__hint--muted">
+                          Compétences supplémentaires conservées : {extraSkillSelections.join(', ')}.
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
                 </section>
               ) : null}
@@ -731,21 +899,6 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                           </p>
                         )}
                       </div>
-
-                      {classFeatureOptions.length ? (
-                        <div className="build-form__level-section">
-                          <h5>Ce que le jeu accorde à ce niveau</h5>
-                          <ul className="build-form__feature-list">
-                            {classFeatureOptions.map((feature) => (
-                              <li key={feature}>{feature}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <p className="build-form__hint build-form__hint--muted">
-                          Ce niveau n’accorde pas de nouvelle capacité de classe.
-                        </p>
-                      )}
 
                       {displaySpellsSection ? (
                         <div className="build-form__level-section build-form__level-section--spells">

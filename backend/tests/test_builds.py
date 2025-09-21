@@ -21,7 +21,8 @@ def _prepare_build_tables(db_path: Path) -> None:
                 race TEXT,
                 class TEXT,
                 subclass TEXT,
-                notes TEXT
+                notes TEXT,
+                skill_choices TEXT
             )
             """
         )
@@ -56,6 +57,7 @@ def test_create_build_creates_entry_with_levels(
         "class": "Fighter",
         "subclass": "Arcane Archer",
         "notes": "Ranged build focusing on archery.",
+        "skill_choices": ["Acrobatics", "Stealth", "Perception"],
         "levels": [
             {
                 "level": 1,
@@ -84,6 +86,7 @@ def test_create_build_creates_entry_with_levels(
     assert data["name"] == payload["name"]
     assert data["class"] == payload["class"]
     assert data["notes"] == payload["notes"]
+    assert sorted(data["skill_choices"]) == sorted(payload["skill_choices"])
     assert len(data["levels"]) == 2
 
     first_level = data["levels"][0]
@@ -108,6 +111,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
         "class": "Fighter",
         "subclass": "Arcane Archer",
         "notes": "Ranged build focusing on archery.",
+        "skill_choices": ["Acrobatics", "Stealth", "Perception"],
         "levels": [
             {
                 "level": 1,
@@ -148,6 +152,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
         "class": "Fighter",
         "subclass": "Arcane Archer",
         "notes": "Updated notes.",
+        "skill_choices": ["Acrobatics", "Stealth", "Insight"],
         "levels": update_levels,
     }
 
@@ -157,6 +162,7 @@ def test_update_build_replaces_levels(client: TestClient, test_db: Path) -> None
     data = response.json()
     assert data["id"] == build_id
     assert data["notes"] == "Updated notes."
+    assert sorted(data["skill_choices"]) == sorted(update_payload["skill_choices"])
     assert len(data["levels"]) == 2
     returned_spells = [level["spells"] for level in data["levels"]]
     assert "Hunter's Mark" in returned_spells
@@ -180,6 +186,7 @@ def test_delete_build_removes_entry(client: TestClient, test_db: Path) -> None:
         "class": "Fighter",
         "subclass": "Arcane Archer",
         "notes": "Ranged build focusing on archery.",
+        "skill_choices": ["Acrobatics", "Stealth", "Perception"],
         "levels": [
             {
                 "level": 1,

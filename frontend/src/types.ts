@@ -355,6 +355,8 @@ export interface PartyMember {
   class_name?: string
   subclass?: string
   background?: string
+  act?: string
+  role?: string
   level: number
   buildId?: number
   abilityScores: Record<AbilityScoreKey, number>

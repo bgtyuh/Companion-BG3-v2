@@ -17,8 +17,10 @@ import { equipmentSlotKeys } from '../types'
 import { getSpellLevelShortLabel, sortSpellsByLevel } from '../utils/spells'
 import { downloadJSON, readJSONFile } from '../utils/file'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
+import { computePartyMetrics, PARTY_ACT_OPTIONS, PARTY_ROLE_OPTIONS } from '../utils/party'
 import { CharacterSheet } from './CharacterSheet'
 import { Panel } from './Panel'
+import { PartyOverviewPanel } from './PartyOverviewPanel'
 
 interface PartyPlannerProps {
   builds: Build[]
@@ -98,6 +100,8 @@ function isValidPartyMember(value: unknown): value is PartyMember {
   if (value.class_name !== undefined && typeof value.class_name !== 'string') return false
   if (value.subclass !== undefined && typeof value.subclass !== 'string') return false
   if (value.background !== undefined && typeof value.background !== 'string') return false
+  if (value.act !== undefined && typeof value.act !== 'string') return false
+  if (value.role !== undefined && typeof value.role !== 'string') return false
   if (!isPartyEquipment(value.equipment)) return false
   if (value.notes !== undefined && typeof value.notes !== 'string') return false
 
@@ -111,6 +115,8 @@ type PartyMemberInput = Omit<PartyMember, 'equipment'> & {
   equippedArmour?: unknown
   equippedWeapons?: unknown
   savingThrows?: unknown
+  act?: unknown
+  role?: unknown
 }
 
 function sanitizeMember(member: PartyMemberInput): PartyMember {
@@ -172,6 +178,8 @@ function sanitizeMember(member: PartyMemberInput): PartyMember {
     subclass: typeof member.subclass === 'string' && member.subclass.trim() ? member.subclass.trim() : undefined,
     background:
       typeof member.background === 'string' && member.background.trim() ? member.background.trim() : undefined,
+    act: typeof member.act === 'string' && member.act.trim() ? member.act.trim() : undefined,
+    role: typeof member.role === 'string' && member.role.trim() ? member.role.trim() : undefined,
     level: member.level,
     buildId: typeof member.buildId === 'number' ? member.buildId : undefined,
     abilityScores: abilityKeys.reduce<PartyMember['abilityScores']>((scores, key) => {
@@ -260,6 +268,18 @@ export function PartyPlanner({
   const [editingMember, setEditingMember] = useState<PartyMember | null>(null)
   const [spellQuery, setSpellQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const partyMetrics = useMemo(
+    () =>
+      computePartyMetrics({
+        members,
+        spells,
+        equipment,
+        skillsCatalog: skillOptions,
+        roleCatalog: Array.from(PARTY_ROLE_OPTIONS),
+      }),
+    [members, spells, equipment],
+  )
 
   const selectedMember = useMemo(
     () => members.find((member) => member.id === selectedId) ?? null,
@@ -529,6 +549,44 @@ export function PartyPlanner({
                         setEditingMember({ ...editingMember, level: Number.parseInt(event.target.value, 10) })
                       }
                     />
+                  </label>
+                  <label>
+                    Acte
+                    <select
+                      value={editingMember.act ?? ''}
+                      onChange={(event) =>
+                        setEditingMember({
+                          ...editingMember,
+                          act: event.target.value ? event.target.value : undefined,
+                        })
+                      }
+                    >
+                      <option value="">—</option>
+                      {PARTY_ACT_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Rôle
+                    <select
+                      value={editingMember.role ?? ''}
+                      onChange={(event) =>
+                        setEditingMember({
+                          ...editingMember,
+                          role: event.target.value ? event.target.value : undefined,
+                        })
+                      }
+                    >
+                      <option value="">—</option>
+                      {PARTY_ROLE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     Build conseillé
@@ -813,6 +871,16 @@ export function PartyPlanner({
           </div>
         </div>
       </Panel>
+
+      <PartyOverviewPanel
+        members={members}
+        spells={spells}
+        equipment={equipment}
+        skillsCatalog={skillOptions}
+        roleOptions={Array.from(PARTY_ROLE_OPTIONS)}
+        actOptions={Array.from(PARTY_ACT_OPTIONS)}
+        metrics={partyMetrics}
+      />
 
       <CharacterSheet
         member={selectedMember}

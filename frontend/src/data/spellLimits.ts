@@ -1,4 +1,37 @@
+// Hard-coded spell learning/preparation limits for classes where the progression
+// tables do not expose the number of spells gained per level. Prepared casters
+// (Cleric, Druid, Paladin) are approximated with a default +3 spellcasting
+// ability modifier so the builder prevents selecting more spells than should be
+// available at each level.
 export const STATIC_SPELL_LIMITS: Readonly<Record<string, Readonly<Record<number, number>>>> = {
+  Cleric: {
+    1: 7,
+    2: 1,
+    3: 1,
+    4: 2,
+    5: 1,
+    6: 1,
+    7: 1,
+    8: 1,
+    9: 1,
+    10: 2,
+    11: 1,
+    12: 1,
+  },
+  Druid: {
+    1: 6,
+    2: 1,
+    3: 1,
+    4: 2,
+    5: 1,
+    6: 1,
+    7: 1,
+    8: 1,
+    9: 1,
+    10: 2,
+    11: 1,
+    12: 1,
+  },
   Bard: {
     1: 6,
     2: 1,
@@ -11,6 +44,20 @@ export const STATIC_SPELL_LIMITS: Readonly<Record<string, Readonly<Record<number
     9: 1,
     10: 2,
     11: 1,
+    12: 1,
+  },
+  Paladin: {
+    1: 0,
+    2: 4,
+    3: 0,
+    4: 1,
+    5: 0,
+    6: 1,
+    7: 0,
+    8: 1,
+    9: 0,
+    10: 1,
+    11: 0,
     12: 1,
   },
   Ranger: {

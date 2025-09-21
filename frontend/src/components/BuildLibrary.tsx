@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Build, BuildLevel, CharacterClass, Race, SubclassFeature } from '../types'
 import { getProgressionHighlights } from '../utils/progression'
 import { getClassLevelChoices } from '../utils/classLevelChoices'
@@ -10,6 +12,8 @@ import {
   type BuildSpellReplacement,
 } from '../utils/spells'
 import { STATIC_SPELL_LIMITS } from '../data/spellLimits'
+import { downloadJSON, readJSONFile } from '../utils/file'
+import { api } from '../api'
 import { Panel } from './Panel'
 
 interface BuildLibraryProps {
@@ -22,6 +26,137 @@ interface BuildLibraryProps {
 }
 
 const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
+
+interface NormalizedImportedBuild {
+  id: number | null
+  payload: Omit<Build, 'id'>
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function sanitizeOptionalText(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  return trimmed
+}
+
+function sanitizeSpellPlan(value: unknown): string {
+  if (typeof value === 'string') {
+    return serializeBuildSpellPlan(parseBuildSpellPlan(value))
+  }
+  if (value == null) {
+    return serializeBuildSpellPlan(createEmptyBuildSpellPlan())
+  }
+  if (isRecord(value)) {
+    try {
+      return serializeBuildSpellPlan(parseBuildSpellPlan(JSON.stringify(value)))
+    } catch {
+      const summary = typeof value.summary === 'string' ? value.summary : ''
+      const learned = Array.isArray(value.learned)
+        ? value.learned.filter((entry): entry is string => typeof entry === 'string')
+        : []
+      const replacements = Array.isArray(value.replacements)
+        ? value.replacements
+            .map((entry) => {
+              if (!isRecord(entry)) return null
+              const previous = typeof entry.previous === 'string' ? entry.previous : ''
+              const next = typeof entry.next === 'string' ? entry.next : ''
+              if (!previous && !next) return null
+              return { previous, next }
+            })
+            .filter((entry): entry is BuildSpellReplacement => entry !== null)
+        : []
+      return serializeBuildSpellPlan({ summary, learned, replacements })
+    }
+  }
+  return serializeBuildSpellPlan(createEmptyBuildSpellPlan())
+}
+
+function sanitizeBuildLevel(value: unknown): BuildLevel | null {
+  if (!isRecord(value)) return null
+
+  const levelValue = typeof value.level === 'number' ? value.level : Number(value.level)
+  if (!Number.isFinite(levelValue) || !Number.isInteger(levelValue)) {
+    return null
+  }
+  if (levelValue < 1 || levelValue > abilityLevels.length) {
+    return null
+  }
+
+  const sanitized: BuildLevel = {
+    level: levelValue,
+    spells: sanitizeSpellPlan(value.spells),
+    feats: sanitizeOptionalText(value.feats),
+    subclass_choice: sanitizeOptionalText(value.subclass_choice),
+    multiclass_choice: sanitizeOptionalText(value.multiclass_choice),
+    note: sanitizeOptionalText(value.note),
+  }
+
+  if (typeof value.id === 'number' && Number.isInteger(value.id)) {
+    sanitized.id = value.id
+  }
+
+  return sanitized
+}
+
+function normalizeImportedBuild(value: unknown, index: number): NormalizedImportedBuild {
+  if (!isRecord(value)) {
+    throw new Error(`Le build n°${index + 1} est invalide.`)
+  }
+
+  const name = sanitizeOptionalText(value.name)
+  if (!name) {
+    throw new Error(`Le build n°${index + 1} ne possède pas de nom valide.`)
+  }
+
+  const rawLevels = Array.isArray(value.levels) ? value.levels : []
+  const levels = rawLevels
+    .map((entry) => sanitizeBuildLevel(entry))
+    .filter((entry): entry is BuildLevel => entry !== null)
+    .sort((a, b) => a.level - b.level)
+
+  if (!levels.length) {
+    throw new Error(`Le build « ${name} » ne contient aucun niveau valide.`)
+  }
+
+  const skillChoices = isStringArray(value.skill_choices)
+    ? normalizeSkillSelections(value.skill_choices)
+    : []
+
+  const payload: Omit<Build, 'id'> = {
+    name,
+    race: sanitizeOptionalText(value.race),
+    class_name: sanitizeOptionalText(value.class_name),
+    subclass: sanitizeOptionalText(value.subclass),
+    notes: sanitizeOptionalText(value.notes),
+    skill_choices: skillChoices,
+    levels,
+  }
+
+  const id = typeof value.id === 'number' && Number.isInteger(value.id) ? value.id : null
+
+  return { id, payload }
+}
+
+function parseImportedBuilds(data: unknown): NormalizedImportedBuild[] {
+  if (!Array.isArray(data)) {
+    throw new Error('Le fichier ne correspond pas au format attendu.')
+  }
+
+  const builds = data.map((entry, index) => normalizeImportedBuild(entry, index))
+
+  if (!builds.length) {
+    throw new Error('Le fichier ne contient aucun build à importer.')
+  }
+
+  return builds
+}
 
 type BuildFormLevel = BuildLevel & {
   spellPlan: BuildSpellPlan
@@ -225,6 +360,7 @@ function renderFeatureDescription(feature: SubclassFeature) {
 }
 
 export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDelete }: BuildLibraryProps) {
+  const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isFormVisible, setIsFormVisible] = useState(false)
@@ -238,6 +374,73 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  function handleExport() {
+    downloadJSON(builds, 'bg3-builds.json')
+  }
+
+  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+
+    setImportError(null)
+    setIsImporting(true)
+
+    try {
+      const data = await readJSONFile<unknown>(file)
+      const importedBuilds = parseImportedBuilds(data)
+
+      const knownBuildsById = new Map<number, Build>()
+      const knownBuildsByName = new Map<string, Build>()
+
+      for (const build of builds) {
+        knownBuildsById.set(build.id, build)
+        knownBuildsByName.set(build.name.trim().toLowerCase(), build)
+      }
+
+      for (const imported of importedBuilds) {
+        const normalizedName = imported.payload.name.trim().toLowerCase()
+
+        let target: Build | undefined
+        if (imported.id != null) {
+          target = knownBuildsById.get(imported.id) ?? target
+        }
+        if (!target) {
+          target = knownBuildsByName.get(normalizedName)
+        }
+
+        if (target) {
+          const updated = await api.updateBuild(target.id, imported.payload)
+          knownBuildsById.set(updated.id, updated)
+          knownBuildsByName.set(normalizedName, updated)
+        } else {
+          const created = await api.createBuild(imported.payload)
+          knownBuildsById.set(created.id, created)
+          knownBuildsByName.set(created.name.trim().toLowerCase(), created)
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['builds'] })
+    } catch (error) {
+      console.error('Failed to import builds', error)
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Impossible d'importer les builds. Vérifiez le fichier."
+      setImportError(message)
+    } finally {
+      setIsImporting(false)
+      input.value = ''
+    }
+  }
+
+  function triggerImport() {
+    fileInputRef.current?.click()
+  }
 
   function resetFormState(hideForm = false) {
     const empty = createInitialFormState()
@@ -848,7 +1051,32 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }
 
   return (
-    <Panel title="Concepteur de builds" subtitle="Documentez vos plans de progression niveau par niveau">
+    <Panel
+      title="Concepteur de builds"
+      subtitle="Documentez vos plans de progression niveau par niveau"
+      actions={
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            hidden
+            onChange={handleImport}
+          />
+          <button type="button" className="link" onClick={handleExport}>
+            Exporter
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={triggerImport}
+            disabled={isImporting}
+          >
+            {isImporting ? 'Import en cours…' : 'Importer'}
+          </button>
+        </>
+      }
+    >
       <div className="build-library">
         <div className="build-library__list">
           <div className="build-library__toolbar">
@@ -869,6 +1097,11 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
               </select>
             </label>
           </div>
+          {importError ? (
+            <div className="build-library__status build-library__status--error" role="alert">
+              {importError}
+            </div>
+          ) : null}
           <ul>
             {filteredBuilds.map((build) => {
               const meta = [build.class_name, build.subclass].filter(Boolean).join(' • ')

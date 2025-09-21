@@ -1,4 +1,4 @@
-import type { Spell } from '../types'
+import type { BuildLevel, Spell } from '../types'
 
 export interface SpellLevelInfo {
   value: string
@@ -165,4 +165,76 @@ export function describeBuildSpellPlan(plan: BuildSpellPlan): string {
     parts.push(summary)
   }
   return parts.join(' • ')
+}
+
+export interface BuildKnownSpellsResult {
+  known: string[]
+  added: string[]
+  removed: string[]
+}
+
+function normalizeSpellName(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+export function computeBuildKnownSpells(levels: readonly BuildLevel[], upToLevel: number): BuildKnownSpellsResult {
+  if (!levels.length || upToLevel <= 0) {
+    return { known: [], added: [], removed: [] }
+  }
+
+  const relevant = levels
+    .filter((level) => Number.isInteger(level.level) && level.level <= upToLevel)
+    .sort((a, b) => a.level - b.level)
+
+  const known: string[] = []
+  const knownSet = new Set<string>()
+  const added = new Set<string>()
+  const removed = new Set<string>()
+
+  for (const level of relevant) {
+    const plan = parseBuildSpellPlan(level.spells ?? '')
+
+    for (const entry of plan.replacements) {
+      const previous = normalizeSpellName(entry.previous)
+      if (!previous) continue
+      removed.add(previous)
+      if (knownSet.delete(previous)) {
+        const index = known.findIndex((spell) => spell === previous)
+        if (index >= 0) {
+          known.splice(index, 1)
+        }
+      }
+    }
+
+    const additions: string[] = []
+    for (const entry of plan.replacements) {
+      const next = normalizeSpellName(entry.next)
+      if (next) {
+        additions.push(next)
+      }
+    }
+    additions.push(...plan.learned.map((spell) => spell.trim()).filter((spell) => spell.length > 0))
+
+    for (const spell of additions) {
+      if (!knownSet.has(spell)) {
+        knownSet.add(spell)
+        known.push(spell)
+      }
+      added.add(spell)
+    }
+  }
+
+  const sortedKnown = [...known].sort((a, b) => a.localeCompare(b, 'fr'))
+  const sortedAdded = [...added].sort((a, b) => a.localeCompare(b, 'fr'))
+  const sortedRemoved = [...removed].sort((a, b) => a.localeCompare(b, 'fr'))
+
+  return {
+    known: sortedKnown,
+    added: sortedAdded,
+    removed: sortedRemoved,
+  }
 }

@@ -306,6 +306,17 @@ function renderWeaponTooltip(item: WeaponItem) {
   )
 }
 
+function parseChoiceList(value?: string | null): string[] {
+  if (!value) {
+    return []
+  }
+
+  return value
+    .split(/\r?\n|•/)
+    .map((entry) => entry.replace(/^[\s•\-–—]+/, '').trim())
+    .filter((entry) => entry.length > 0)
+}
+
 function renderEquipmentTooltip(entry: EquipmentEntry) {
   switch (entry.category) {
     case 'armour':
@@ -440,6 +451,61 @@ export function CharacterSheet({
     [nextStep],
   )
   const nextStepSpellSummary = nextStepSpellPlan ? describeBuildSpellPlan(nextStepSpellPlan) : ''
+  const nextStepSpellInsights = useMemo(() => {
+    if (!member || !nextStepSpellPlan) {
+      return null
+    }
+
+    const known = new Set(member.spells)
+    const toLearn = new Set<string>()
+    const replacements: { previous: string; next: string }[] = []
+    const toRemove = new Set<string>()
+
+    for (const entry of nextStepSpellPlan.replacements) {
+      const previous = entry.previous?.trim() ?? ''
+      const next = entry.next?.trim() ?? ''
+      const needsAction =
+        (previous && known.has(previous)) || (next && !known.has(next))
+
+      if (next) {
+        if (!known.has(next)) {
+          toLearn.add(next)
+        }
+      }
+
+      if (previous && !next && known.has(previous)) {
+        toRemove.add(previous)
+      }
+
+      if (previous && next && needsAction) {
+        replacements.push({ previous, next })
+      }
+    }
+
+    for (const learned of nextStepSpellPlan.learned) {
+      const trimmed = learned.trim()
+      if (trimmed && !known.has(trimmed)) {
+        toLearn.add(trimmed)
+      }
+    }
+
+    return {
+      toLearn: Array.from(toLearn).sort((a, b) => a.localeCompare(b, 'fr')),
+      replacements,
+      toRemove: Array.from(toRemove).sort((a, b) => a.localeCompare(b, 'fr')),
+    }
+  }, [member, nextStepSpellPlan])
+  const nextStepFeatList = useMemo(() => parseChoiceList(nextStep?.feats), [nextStep?.feats])
+  const nextStepSpecialChoices = useMemo(() => {
+    const entries: string[] = []
+    if (nextStep?.subclass_choice) {
+      entries.push(...parseChoiceList(nextStep.subclass_choice))
+    }
+    if (nextStep?.multiclass_choice) {
+      entries.push(...parseChoiceList(nextStep.multiclass_choice))
+    }
+    return entries
+  }, [nextStep?.multiclass_choice, nextStep?.subclass_choice])
 
   if (!member) {
     return (
@@ -505,16 +571,61 @@ export function CharacterSheet({
               {nextStep ? (
                 <div className="character-sheet__next-step">
                   <h5>Préparez le niveau {nextLevel}</h5>
-                  <p>
-                    <strong>Sorts :</strong> {nextStepSpellSummary || '—'}
-                  </p>
-                  <p>
-                    <strong>Dons :</strong> {nextStep.feats || '—'}
-                  </p>
-                  <p>
-                    <strong>Choix spéciaux :</strong>{' '}
-                    {nextStep.subclass_choice || nextStep.multiclass_choice || '—'}
-                  </p>
+                  <div className="character-sheet__next-step-group">
+                    <p>
+                      <strong>Sorts :</strong> {nextStepSpellSummary || '—'}
+                    </p>
+                    {nextStepSpellInsights &&
+                    (nextStepSpellInsights.toLearn.length ||
+                      nextStepSpellInsights.replacements.length ||
+                      nextStepSpellInsights.toRemove.length) ? (
+                      <ul className="character-sheet__next-step-list">
+                        {nextStepSpellInsights.toLearn.length ? (
+                          <li>
+                            <span className="character-sheet__next-step-emphasis">À apprendre :</span>{' '}
+                            {nextStepSpellInsights.toLearn.join(', ')}
+                          </li>
+                        ) : null}
+                        {nextStepSpellInsights.replacements.map((entry, index) => (
+                          <li key={`${entry.previous}→${entry.next}-${index}`}>
+                            <span className="character-sheet__next-step-emphasis">Remplacer :</span>{' '}
+                            {entry.previous ? `${entry.previous} → ${entry.next}` : entry.next}
+                          </li>
+                        ))}
+                        {nextStepSpellInsights.toRemove.length ? (
+                          <li>
+                            <span className="character-sheet__next-step-emphasis">À oublier :</span>{' '}
+                            {nextStepSpellInsights.toRemove.join(', ')}
+                          </li>
+                        ) : null}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <div className="character-sheet__next-step-group">
+                    <p>
+                      <strong>Dons :</strong> {nextStep.feats || '—'}
+                    </p>
+                    {nextStepFeatList.length ? (
+                      <ul className="character-sheet__next-step-list">
+                        {nextStepFeatList.map((entry) => (
+                          <li key={entry}>{entry}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <div className="character-sheet__next-step-group">
+                    <p>
+                      <strong>Choix spéciaux :</strong>{' '}
+                      {nextStep.subclass_choice || nextStep.multiclass_choice || '—'}
+                    </p>
+                    {nextStepSpecialChoices.length ? (
+                      <ul className="character-sheet__next-step-list">
+                        {nextStepSpecialChoices.map((entry) => (
+                          <li key={entry}>{entry}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
                   {nextStep.note ? (
                     <p>
                       <strong>Note :</strong> {nextStep.note}

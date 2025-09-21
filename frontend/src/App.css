@@ -592,6 +592,37 @@ button:focus-visible {
   color: var(--color-text-secondary);
 }
 
+.build-form__skill-choices {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.build-form__skill-choices-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.build-form__skill-options {
+  display: grid;
+  gap: 0.5rem 1.1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.build-form__skill-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+}
+
+.build-form__skill-option input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+}
+
 .build-form__level-header {
   display: flex;
   flex-wrap: wrap;

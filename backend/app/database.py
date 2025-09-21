@@ -47,11 +47,14 @@ def _ensure_companion_schema(conn: sqlite3.Connection) -> None:
 
     cursor = conn.execute("PRAGMA table_info(build_levels)")
     columns = {row["name"] for row in cursor.fetchall()}
-    if not columns:
-        # The table does not exist in the current database; nothing to migrate.
-        return
-    if "note" not in columns:
+    if columns and "note" not in columns:
         conn.execute("ALTER TABLE build_levels ADD COLUMN note TEXT DEFAULT ''")
+        conn.commit()
+
+    cursor = conn.execute("PRAGMA table_info(builds)")
+    build_columns = {row["name"] for row in cursor.fetchall()}
+    if build_columns and "skill_choices" not in build_columns:
+        conn.execute("ALTER TABLE builds ADD COLUMN skill_choices TEXT DEFAULT '[]'")
         conn.commit()
 
 

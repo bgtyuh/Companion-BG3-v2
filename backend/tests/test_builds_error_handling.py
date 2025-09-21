@@ -14,6 +14,7 @@ BASE_BUILD_PAYLOAD = {
     "class": "Fighter",
     "subclass": "Arcane Archer",
     "notes": "Test build",
+    "skill_choices": [],
 }
 
 LEVEL_PAYLOAD = {

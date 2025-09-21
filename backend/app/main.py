@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import sqlite3
@@ -49,10 +50,44 @@ def _boolify(row: Dict, *fields: str) -> Dict:
     return row
 
 
+def _normalize_skill_choices(choices: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for choice in choices:
+        text = str(choice).strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(text)
+    return normalized
+
+
+def _serialize_skill_choices(choices: Iterable[str]) -> str:
+    return json.dumps(_normalize_skill_choices(choices), ensure_ascii=False)
+
+
+def _deserialize_skill_choices(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        try:
+            data = json.loads(value)
+        except json.JSONDecodeError:
+            return _normalize_skill_choices(value.split(","))
+    else:
+        data = value
+    if isinstance(data, list):
+        return _normalize_skill_choices(data)
+    return []
+
+
 def _load_build(build_id: int) -> schemas.Build:
     build_row = fetch_one(
         "companion",
-        "SELECT id, name, race, class, subclass, notes FROM builds WHERE id = ?",
+        "SELECT id, name, race, class, subclass, notes, skill_choices FROM builds WHERE id = ?",
         (build_id,),
     )
     if build_row is None:
@@ -81,6 +116,7 @@ def _load_build(build_id: int) -> schemas.Build:
         class_name=build_row.get("class"),
         subclass=build_row.get("subclass"),
         notes=build_row.get("notes"),
+        skill_choices=_deserialize_skill_choices(build_row.get("skill_choices")),
         levels=levels,
     )
 
@@ -189,7 +225,7 @@ def delete_loot_item(item_id: int) -> Response:
 def list_builds() -> List[schemas.Build]:
     build_rows = fetch_all(
         "companion",
-        "SELECT id, name, race, class, subclass, notes FROM builds ORDER BY name COLLATE NOCASE",
+        "SELECT id, name, race, class, subclass, notes, skill_choices FROM builds ORDER BY name COLLATE NOCASE",
     )
     if not build_rows:
         return []
@@ -230,6 +266,7 @@ def list_builds() -> List[schemas.Build]:
                 class_name=row.get("class"),
                 subclass=row.get("subclass"),
                 notes=row.get("notes"),
+                skill_choices=_deserialize_skill_choices(row.get("skill_choices")),
                 levels=grouped_levels.get(row["id"], []),
             )
         )
@@ -247,8 +284,8 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
         new_id = execute(
             "companion",
             """
-            INSERT INTO builds (name, race, class, subclass, notes)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO builds (name, race, class, subclass, notes, skill_choices)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.name,
@@ -256,6 +293,7 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
                 payload.class_name,
                 payload.subclass,
                 payload.notes,
+                _serialize_skill_choices(payload.skill_choices),
             ),
             fetch_lastrowid=True,
         )
@@ -312,13 +350,14 @@ def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
     try:
         execute(
             "companion",
-            "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ? WHERE id = ?",
+            "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ?, skill_choices = ? WHERE id = ?",
             (
                 payload.name,
                 payload.race,
                 payload.class_name,
                 payload.subclass,
                 payload.notes,
+                _serialize_skill_choices(payload.skill_choices),
                 build_id,
             ),
         )

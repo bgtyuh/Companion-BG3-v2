@@ -935,6 +935,20 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                               Ces sorts ont été ajoutés manuellement pour ce niveau.
                             </p>
                           ) : null}
+                          <div className="build-form__level-summary">
+                            <label>
+                              Résumé du plan
+                              <textarea
+                                value={plan.summary}
+                                onChange={(event) =>
+                                  updateSpellPlan(index, (currentPlan) => ({
+                                    ...currentPlan,
+                                    summary: event.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
                           {knownSpellsBefore.length || plan.replacements.length ? (
                             <div className="build-form__spell-replacements">
                               <h6>Remplacements possibles</h6>

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import schemas
-from .database import execute, fetch_all, fetch_one
+from .database import execute, fetch_all, fetch_one, get_connection
 
 EquipmentModel = TypeVar("EquipmentModel", bound=BaseModel)
 
@@ -278,56 +278,73 @@ def get_build(build_id: int) -> schemas.Build:
     return _load_build(build_id)
 
 
+def _safe_rollback(conn: sqlite3.Connection) -> None:
+    try:
+        if conn.in_transaction:
+            conn.rollback()
+    except sqlite3.Error:
+        logging.exception("Failed to rollback transaction")
+
+
 @app.post("/api/builds", response_model=schemas.Build, status_code=201)
 def create_build(payload: schemas.BuildCreate) -> schemas.Build:
     try:
-        new_id = execute(
-            "companion",
-            """
-            INSERT INTO builds (name, race, class, subclass, notes, skill_choices)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.name,
-                payload.race,
-                payload.class_name,
-                payload.subclass,
-                payload.notes,
-                _serialize_skill_choices(payload.skill_choices),
-            ),
-            fetch_lastrowid=True,
-        )
+        with get_connection("companion") as conn:
+            try:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO builds (name, race, class, subclass, notes, skill_choices)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        payload.name,
+                        payload.race,
+                        payload.class_name,
+                        payload.subclass,
+                        payload.notes,
+                        _serialize_skill_choices(payload.skill_choices),
+                    ),
+                )
+                new_id = cursor.lastrowid
+                if not new_id:
+                    raise HTTPException(status_code=500, detail="Failed to create build")
+
+                for level in payload.levels:
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                new_id,
+                                level.level,
+                                level.spells or "",
+                                level.feats or "",
+                                level.subclass_choice or "",
+                                level.multiclass_choice or "",
+                                level.note or "",
+                            ),
+                        )
+                    except sqlite3.Error as exc:
+                        logging.exception(
+                            "Failed to create level %s for build %s", level.level, new_id
+                        )
+                        raise
+
+                conn.commit()
+            except HTTPException:
+                _safe_rollback(conn)
+                raise
+            except sqlite3.Error as exc:
+                _safe_rollback(conn)
+                logging.exception("Failed to create build")
+                raise HTTPException(status_code=500, detail="Failed to create build") from exc
     except sqlite3.Error as exc:
         logging.exception("Failed to create build")
         raise HTTPException(status_code=500, detail="Failed to create build") from exc
-    if new_id is None:
-        raise HTTPException(status_code=500, detail="Failed to create build")
-
-    for level in payload.levels:
-        try:
-            execute(
-                "companion",
-                """
-                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    new_id,
-                    level.level,
-                    level.spells or "",
-                    level.feats or "",
-                    level.subclass_choice or "",
-                    level.multiclass_choice or "",
-                    level.note or "",
-                ),
-            )
-        except sqlite3.Error as exc:
-            logging.exception(
-                "Failed to create level %s for build %s", level.level, new_id
-            )
-            raise HTTPException(status_code=500, detail="Failed to create build") from exc
     try:
-        return _load_build(new_id)
+        return _load_build(int(new_id))
     except sqlite3.Error as exc:
         logging.exception("Failed to load build %s after creation", new_id)
         raise HTTPException(status_code=500, detail="Failed to create build") from exc
@@ -336,62 +353,65 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
 @app.put("/api/builds/{build_id}", response_model=schemas.Build)
 def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
     try:
-        existing = fetch_one(
-            "companion",
-            "SELECT id FROM builds WHERE id = ?",
-            (build_id,),
-        )
-    except sqlite3.Error as exc:
-        logging.exception("Failed to load build %s for update", build_id)
-        raise HTTPException(status_code=500, detail="Failed to update build") from exc
-    if existing is None:
-        raise HTTPException(status_code=404, detail="Build not found")
+        with get_connection("companion") as conn:
+            try:
+                cursor = conn.execute(
+                    "SELECT id FROM builds WHERE id = ?",
+                    (build_id,),
+                )
+                existing = cursor.fetchone()
+                if existing is None:
+                    raise HTTPException(status_code=404, detail="Build not found")
 
-    try:
-        execute(
-            "companion",
-            "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ?, skill_choices = ? WHERE id = ?",
-            (
-                payload.name,
-                payload.race,
-                payload.class_name,
-                payload.subclass,
-                payload.notes,
-                _serialize_skill_choices(payload.skill_choices),
-                build_id,
-            ),
-        )
+                conn.execute(
+                    "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ?, skill_choices = ? WHERE id = ?",
+                    (
+                        payload.name,
+                        payload.race,
+                        payload.class_name,
+                        payload.subclass,
+                        payload.notes,
+                        _serialize_skill_choices(payload.skill_choices),
+                        build_id,
+                    ),
+                )
+                conn.execute(
+                    "DELETE FROM build_levels WHERE build_id = ?",
+                    (build_id,),
+                )
+                for level in payload.levels:
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                build_id,
+                                level.level,
+                                level.spells or "",
+                                level.feats or "",
+                                level.subclass_choice or "",
+                                level.multiclass_choice or "",
+                                level.note or "",
+                            ),
+                        )
+                    except sqlite3.Error as exc:
+                        logging.exception(
+                            "Failed to update level %s for build %s", level.level, build_id
+                        )
+                        raise
+                conn.commit()
+            except HTTPException:
+                _safe_rollback(conn)
+                raise
+            except sqlite3.Error as exc:
+                _safe_rollback(conn)
+                logging.exception("Failed to update build %s", build_id)
+                raise HTTPException(status_code=500, detail="Failed to update build") from exc
     except sqlite3.Error as exc:
         logging.exception("Failed to update build %s", build_id)
         raise HTTPException(status_code=500, detail="Failed to update build") from exc
-    try:
-        execute("companion", "DELETE FROM build_levels WHERE build_id = ?", (build_id,))
-    except sqlite3.Error as exc:
-        logging.exception("Failed to reset levels for build %s", build_id)
-        raise HTTPException(status_code=500, detail="Failed to update build") from exc
-    for level in payload.levels:
-        try:
-            execute(
-                "companion",
-                """
-                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    build_id,
-                    level.level,
-                    level.spells or "",
-                    level.feats or "",
-                    level.subclass_choice or "",
-                    level.multiclass_choice or "",
-                    level.note or "",
-                ),
-            )
-        except sqlite3.Error as exc:
-            logging.exception(
-                "Failed to update level %s for build %s", level.level, build_id
-            )
-            raise HTTPException(status_code=500, detail="Failed to update build") from exc
     try:
         return _load_build(build_id)
     except sqlite3.Error as exc:

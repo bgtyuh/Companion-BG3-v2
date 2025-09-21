@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Build, BuildLevel, CharacterClass, Race, SubclassFeature } from '../types'
 import { getProgressionHighlights } from '../utils/progression'
 import { getClassLevelChoices } from '../utils/classLevelChoices'
@@ -23,9 +23,15 @@ interface BuildLibraryProps {
 
 const abilityLevels = Array.from({ length: 12 }, (_, index) => index + 1)
 
-type BuildFormLevel = BuildLevel & { spellPlan: BuildSpellPlan; manualSpellDraft?: string }
+type BuildFormLevel = BuildLevel & {
+  spellPlan: BuildSpellPlan
+  manualSpellDraft?: string
+  manualSpellError?: string | null
+}
 
 type BuildFormState = Omit<Build, 'id' | 'levels'> & { levels: BuildFormLevel[] }
+
+type SortOption = 'name-asc' | 'name-desc' | 'class-asc' | 'race-asc'
 
 function splitFeatureList(raw?: string | null): string[] {
   if (!raw) {
@@ -130,11 +136,44 @@ function createEmptyLevel(level = 1): BuildFormLevel {
     note: '',
     spellPlan: createEmptyBuildSpellPlan(),
     manualSpellDraft: '',
+    manualSpellError: null,
   }
 }
 
 function formatSpellCount(count: number): string {
   return `${count} sort${count > 1 ? 's' : ''}`
+}
+
+function createInitialFormState(): BuildFormState {
+  return {
+    name: '',
+    race: '',
+    class_name: '',
+    subclass: '',
+    notes: '',
+    skill_choices: [],
+    levels: [createEmptyLevel()],
+  }
+}
+
+function buildPayloadFromState(state: BuildFormState): Omit<Build, 'id'> {
+  const { levels, skill_choices, ...rest } = state
+  const normalizedSkillChoices = normalizeSkillSelections(skill_choices)
+  return {
+    ...rest,
+    skill_choices: normalizedSkillChoices,
+    levels: [...levels]
+      .filter((entry) => entry.level)
+      .map((entry) => ({
+        level: entry.level,
+        spells: serializeBuildSpellPlan(entry.spellPlan),
+        feats: entry.feats?.trim() ?? '',
+        subclass_choice: entry.subclass_choice?.trim() ?? '',
+        multiclass_choice: entry.multiclass_choice?.trim() ?? '',
+        note: entry.note?.trim() ?? '',
+      }))
+      .sort((a, b) => a.level - b.level),
+  }
 }
 
 function getKnownSpellsBeforeLevel(levels: BuildFormLevel[], index: number): string[] {
@@ -189,30 +228,43 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isFormVisible, setIsFormVisible] = useState(false)
-  const [form, setForm] = useState<BuildFormState>({
-    name: '',
-    race: '',
-    class_name: '',
-    subclass: '',
-    notes: '',
-    skill_choices: [],
-    levels: [createEmptyLevel()],
-  })
-  function resetForm(hideForm = false) {
-    setForm({
-      name: '',
-      race: '',
-      class_name: '',
-      subclass: '',
-      notes: '',
-      skill_choices: [],
-      levels: [createEmptyLevel()],
-    })
+  const [form, setForm] = useState<BuildFormState>(() => createInitialFormState())
+  const [initialFormSignature, setInitialFormSignature] = useState<string>(() =>
+    JSON.stringify(buildPayloadFromState(createInitialFormState())),
+  )
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('name-asc')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+
+  function resetFormState(hideForm = false) {
+    const empty = createInitialFormState()
+    setForm(empty)
+    setInitialFormSignature(JSON.stringify(buildPayloadFromState(empty)))
     setIsEditing(false)
     setSelectedId(null)
+    setHasUnsavedChanges(false)
+    setSubmitError(null)
+    setValidationErrors([])
+    setIsSubmitting(false)
     if (hideForm) {
       setIsFormVisible(false)
     }
+  }
+
+  function discardChanges(hideForm = false) {
+    if (hasUnsavedChanges) {
+      const confirmed =
+        typeof window === 'undefined'
+          ? true
+          : window.confirm('Vous avez des modifications non enregistrées. Voulez-vous les abandonner ?')
+      if (!confirmed) {
+        return
+      }
+    }
+    resetFormState(hideForm)
   }
 
   const raceOptions = useMemo(
@@ -328,6 +380,101 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   const hasReachedSkillLimit =
     remainingSkillChoices != null ? remainingSkillChoices <= 0 : false
 
+  useEffect(() => {
+    const signature = JSON.stringify(buildPayloadFromState(form))
+    setHasUnsavedChanges(signature !== initialFormSignature)
+  }, [form, initialFormSignature])
+
+  const filteredBuilds = useMemo(() => {
+    const normalizedQuery = normalizeForMatching(searchQuery.trim())
+    const matchesQuery = (build: Build) => {
+      if (!normalizedQuery) {
+        return true
+      }
+      const tokens = [build.name, build.class_name, build.subclass, build.race, build.notes]
+        .map((value) => (value ?? '').toString())
+        .join(' ')
+      return normalizeForMatching(tokens).includes(normalizedQuery)
+    }
+    const filtered = builds.filter((build) => matchesQuery(build))
+    const sorted = [...filtered]
+    const getSortableValue = (build: Build, key: 'name' | 'class' | 'race') => {
+      if (key === 'name') return build.name ?? ''
+      if (key === 'class') return build.class_name ?? ''
+      return build.race ?? ''
+    }
+    switch (sortOption) {
+      case 'name-desc':
+        sorted.sort((a, b) => getSortableValue(b, 'name').localeCompare(getSortableValue(a, 'name'), 'fr'))
+        break
+      case 'class-asc':
+        sorted.sort((a, b) => {
+          const result = getSortableValue(a, 'class').localeCompare(getSortableValue(b, 'class'), 'fr')
+          if (result !== 0) {
+            return result
+          }
+          return a.name.localeCompare(b.name, 'fr')
+        })
+        break
+      case 'race-asc':
+        sorted.sort((a, b) => {
+          const result = getSortableValue(a, 'race').localeCompare(getSortableValue(b, 'race'), 'fr')
+          if (result !== 0) {
+            return result
+          }
+          return a.name.localeCompare(b.name, 'fr')
+        })
+        break
+      case 'name-asc':
+      default:
+        sorted.sort((a, b) => getSortableValue(a, 'name').localeCompare(getSortableValue(b, 'name'), 'fr'))
+        break
+    }
+    return sorted
+  }, [builds, searchQuery, sortOption])
+
+  function validateFormState(state: BuildFormState): string[] {
+    const errors: string[] = []
+    if (!state.name.trim()) {
+      errors.push('Donnez un nom à votre build.')
+    }
+    if (!state.race?.trim()) {
+      errors.push('Sélectionnez une race pour le build.')
+    }
+    const className = state.class_name?.trim()
+    if (!className) {
+      errors.push('Sélectionnez une classe principale pour le build.')
+    }
+    const selectedClassInfo = className
+      ? classes.find((klass) => klass.name === className) ?? null
+      : null
+    const requiresSubclass = (selectedClassInfo?.subclasses.length ?? 0) > 0
+    if (requiresSubclass && !state.subclass?.trim()) {
+      errors.push('Sélectionnez une sous-classe pour le build.')
+    }
+    const allowedSkills = state.class_name
+      ? skillOptionsByClass.get(state.class_name)?.options ?? []
+      : []
+    const invalidSkills = state.skill_choices.filter((skill) => !allowedSkills.includes(skill))
+    if (invalidSkills.length) {
+      errors.push('Retirez les compétences qui ne sont pas proposées par la classe choisie.')
+    }
+
+    state.levels.forEach((level, index) => {
+      const classNameForLevel = level.multiclass_choice?.trim() || state.class_name?.trim() || ''
+      if (!classNameForLevel) {
+        errors.push(`Attribuez une classe au niveau ${index + 1}.`)
+        return
+      }
+      const limit = spellLimitsByClass.get(classNameForLevel)?.get(level.level)
+      if (typeof limit === 'number' && level.spellPlan.learned.length > limit) {
+        errors.push(`Réduisez le nombre de sorts appris au niveau ${level.level}.`)
+      }
+    })
+
+    return errors
+  }
+
   const classHighlights = useMemo(() => {
     if (!selectedClass) return []
     const entries: Array<{ label: string; value: string | null | undefined }> = [
@@ -362,34 +509,34 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }, [selectedSubclass])
 
   async function handleSubmit() {
-    const { levels, skill_choices, ...rest } = form
-    const normalizedSkillChoices = normalizeSkillSelections(skill_choices)
-    const payload: Omit<Build, 'id'> = {
-      ...rest,
-      skill_choices: normalizedSkillChoices,
-      levels: [...levels]
-        .filter((entry) => entry.level)
-        .map((entry) => ({
-          level: entry.level,
-          spells: serializeBuildSpellPlan(entry.spellPlan),
-          feats: entry.feats?.trim() ?? '',
-          subclass_choice: entry.subclass_choice?.trim() ?? '',
-          multiclass_choice: entry.multiclass_choice?.trim() ?? '',
-          note: entry.note?.trim() ?? '',
-        }))
-        .sort((a, b) => a.level - b.level),
+    const errors = validateFormState(form)
+    if (errors.length) {
+      setValidationErrors(errors)
+      return
     }
+    setValidationErrors([])
+    setSubmitError(null)
+    setIsSubmitting(true)
 
-    if (isEditing && selectedId) {
-      await onUpdate(selectedId, payload)
-    } else {
-      await onCreate(payload)
+    const payload = buildPayloadFromState(form)
+
+    try {
+      if (isEditing && selectedId) {
+        await onUpdate(selectedId, payload)
+      } else {
+        await onCreate(payload)
+      }
+      resetFormState(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Une erreur s'est produite."
+      setSubmitError(message)
+    } finally {
+      setIsSubmitting(false)
     }
-    resetForm(true)
   }
 
   function handleEdit(build: Build) {
-    setForm({
+    const nextForm: BuildFormState = {
       name: build.name,
       race: build.race ?? '',
       class_name: build.class_name ?? '',
@@ -407,12 +554,65 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
             note: level.note ?? '',
             spellPlan: parseBuildSpellPlan(level.spells ?? ''),
             manualSpellDraft: '',
+            manualSpellError: null,
           }))
         : [createEmptyLevel()],
-    })
+    }
+    setForm(nextForm)
+    setInitialFormSignature(JSON.stringify(buildPayloadFromState(nextForm)))
+    setHasUnsavedChanges(false)
+    setSubmitError(null)
+    setValidationErrors([])
     setSelectedId(build.id)
     setIsEditing(true)
     setIsFormVisible(true)
+  }
+
+  function getDuplicateName(baseName: string): string {
+    const trimmed = baseName.trim() || 'Build sans nom'
+    const existingNames = new Set(builds.map((entry) => entry.name.toLowerCase()))
+    let suffix = 1
+    let candidate = `${trimmed} (copie)`
+    while (existingNames.has(candidate.toLowerCase())) {
+      suffix += 1
+      candidate = `${trimmed} (copie ${suffix})`
+    }
+    return candidate
+  }
+
+  async function handleDuplicate(build: Build) {
+    setSubmitError(null)
+    const duplicateForm: BuildFormState = {
+      name: getDuplicateName(build.name),
+      race: build.race ?? '',
+      class_name: build.class_name ?? '',
+      subclass: build.subclass ?? '',
+      notes: build.notes ?? '',
+      skill_choices: normalizeSkillSelections(build.skill_choices ?? []),
+      levels: build.levels.length
+        ? build.levels.map((level) => ({
+            level: level.level,
+            spells: level.spells ?? '',
+            feats: level.feats ?? '',
+            subclass_choice: level.subclass_choice ?? '',
+            multiclass_choice: level.multiclass_choice ?? '',
+            note: level.note ?? '',
+            spellPlan: parseBuildSpellPlan(level.spells ?? ''),
+            manualSpellDraft: '',
+            manualSpellError: null,
+          }))
+        : [createEmptyLevel()],
+    }
+    const payload = buildPayloadFromState(duplicateForm)
+    try {
+      await onCreate(payload)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Impossible de dupliquer ce build pour le moment.'
+      setSubmitError(message)
+    }
   }
 
   function handleToggleSkillChoice(skill: string) {
@@ -466,7 +666,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
   }
 
   function handleManualSpellDraftChange(index: number, value: string) {
-    updateLevel(index, { manualSpellDraft: value })
+    updateLevel(index, { manualSpellDraft: value, manualSpellError: null })
   }
 
   function handleAddManualSpell(index: number) {
@@ -476,8 +676,13 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
         return state
       }
       const draft = (currentLevel.manualSpellDraft ?? '').trim()
+      const updateLevelAtIndex = (updates: Partial<BuildFormLevel>): BuildFormLevel[] =>
+        state.levels.map((level, levelIndex) => (levelIndex === index ? { ...level, ...updates } : level))
       if (!draft) {
-        return state
+        return {
+          ...state,
+          levels: updateLevelAtIndex({ manualSpellError: 'Indiquez le nom du sort à ajouter.' }),
+        }
       }
       const classNameForLevel = currentLevel.multiclass_choice || state.class_name || ''
       const limit = classNameForLevel
@@ -488,7 +693,12 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
         limit !== null &&
         currentLevel.spellPlan.learned.length >= limit
       ) {
-        return state
+        return {
+          ...state,
+          levels: updateLevelAtIndex({
+            manualSpellError: 'La limite de sorts pour ce niveau est atteinte.',
+          }),
+        }
       }
       const alreadyKnown = currentLevel.spellPlan.learned.some(
         (spell) => spell.localeCompare(draft, 'fr', { sensitivity: 'base' }) === 0,
@@ -496,26 +706,23 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
       if (alreadyKnown) {
         return {
           ...state,
-          levels: state.levels.map((level, levelIndex) =>
-            levelIndex === index ? { ...level, manualSpellDraft: '' } : level,
-          ),
+          levels: updateLevelAtIndex({
+            manualSpellDraft: '',
+            manualSpellError: 'Ce sort est déjà sélectionné pour ce palier.',
+          }),
         }
       }
       const nextLearned = [...currentLevel.spellPlan.learned, draft].sort((a, b) =>
         a.localeCompare(b, 'fr'),
       )
-      const nextLevels = state.levels.map((level, levelIndex) =>
-        levelIndex === index
-          ? {
-              ...level,
-              manualSpellDraft: '',
-              spellPlan: {
-                ...level.spellPlan,
-                learned: nextLearned,
-              },
-            }
-          : level,
-      )
+      const nextLevels = updateLevelAtIndex({
+        manualSpellDraft: '',
+        manualSpellError: null,
+        spellPlan: {
+          ...currentLevel.spellPlan,
+          learned: nextLearned,
+        },
+      })
       return { ...state, levels: nextLevels }
     })
   }
@@ -624,10 +831,19 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
 
   function handleCreateClick() {
     if (isFormVisible && !isEditing) {
-      resetForm(true)
+      discardChanges(true)
       return
     }
-    resetForm()
+    if (hasUnsavedChanges) {
+      const confirmed =
+        typeof window === 'undefined'
+          ? true
+          : window.confirm('Vous avez des modifications en cours. Voulez-vous commencer un nouveau build ?')
+      if (!confirmed) {
+        return
+      }
+    }
+    resetFormState()
     setIsFormVisible(true)
   }
 
@@ -635,29 +851,61 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
     <Panel title="Concepteur de builds" subtitle="Documentez vos plans de progression niveau par niveau">
       <div className="build-library">
         <div className="build-library__list">
+          <div className="build-library__toolbar">
+            <input
+              type="search"
+              className="build-library__search"
+              placeholder="Rechercher par nom, classe ou race"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            <label className="build-library__sort">
+              <span>Tri</span>
+              <select value={sortOption} onChange={(event) => setSortOption(event.target.value as SortOption)}>
+                <option value="name-asc">Nom (A → Z)</option>
+                <option value="name-desc">Nom (Z → A)</option>
+                <option value="class-asc">Classe</option>
+                <option value="race-asc">Race</option>
+              </select>
+            </label>
+          </div>
           <ul>
-            {builds.map((build) => (
-              <li key={build.id} className={isEditing && build.id === selectedId ? 'active' : ''}>
-                <span>{build.name}</span>
+            {filteredBuilds.map((build) => {
+              const meta = [build.class_name, build.subclass].filter(Boolean).join(' • ')
+              return (
+                <li key={build.id} className={isEditing && build.id === selectedId ? 'active' : ''}>
+                  <div className="build-library__item-info">
+                    <span className="build-library__item-name">{build.name}</span>
+                    {meta ? <span className="build-library__item-meta">{meta}</span> : null}
+                  </div>
                 <div className="build-library__actions">
                   <button className="link" onClick={() => handleEdit(build)}>
                     Modifier
+                  </button>
+                  <button className="link" onClick={() => void handleDuplicate(build)}>
+                    Dupliquer
                   </button>
                   <button
                     className="link link--danger"
                     onClick={() => {
                       void onDelete(build.id)
                       if (isEditing && selectedId === build.id) {
-                        resetForm(true)
+                        resetFormState(true)
                       }
                     }}
                   >
                     Supprimer
                   </button>
                 </div>
-              </li>
-            ))}
-            {!builds.length ? <p className="empty">Enregistrez vos premiers builds pour les proposer à l'équipe.</p> : null}
+                </li>
+              )
+            })}
+            {builds.length === 0 ? (
+              <li className="empty">Enregistrez vos premiers builds pour les proposer à l'équipe.</li>
+            ) : null}
+            {builds.length > 0 && filteredBuilds.length === 0 ? (
+              <li className="empty">Aucun build ne correspond à votre recherche.</li>
+            ) : null}
           </ul>
           <button type="button" onClick={handleCreateClick} className="build-library__new">
             + Nouveau build
@@ -673,16 +921,33 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
               }}
             >
               <div className="build-form__header">
-                <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+                <div className="build-form__title-group">
+                  <h3>{isEditing ? 'Modifier le build' : 'Créer un build'}</h3>
+                  {hasUnsavedChanges ? (
+                    <span className="build-form__badge">Brouillon non enregistré</span>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   className="build-form__close"
-                  onClick={() => resetForm(true)}
+                  onClick={() => discardChanges(true)}
                   aria-label="Fermer le formulaire de build"
                 >
                   ×
                 </button>
               </div>
+              {submitError || validationErrors.length ? (
+                <div className="build-form__status" role="alert">
+                  {submitError ? <p className="build-form__error">{submitError}</p> : null}
+                  {validationErrors.length ? (
+                    <ul className="build-form__error-list">
+                      {validationErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="form__row">
                 <label>
                   Nom du build
@@ -920,6 +1185,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   }
                   const knownSpellsBefore = getKnownSpellsBeforeLevel(form.levels, index)
                   const manualSpellDraft = level.manualSpellDraft ?? ''
+                  const manualSpellError = level.manualSpellError ?? null
                   const displayFeatField = shouldSuggestFeat || Boolean(level.feats)
                   const displaySpellsSection =
                     availableSpells.length > 0 ||
@@ -1029,10 +1295,20 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                                     }
                                     placeholder="Nom du sort"
                                   />
-                                  <button type="button" className="link" onClick={() => handleAddManualSpell(index)}>
+                                  <button
+                                    type="button"
+                                    className="link"
+                                    onClick={() => handleAddManualSpell(index)}
+                                    disabled={manualSpellDraft.trim() === '' || hasReachedSpellLimit}
+                                  >
                                     Ajouter
                                   </button>
                                 </div>
+                                {manualSpellError ? (
+                                  <p className="build-form__error build-form__error--inline">
+                                    {manualSpellError}
+                                  </p>
+                                ) : null}
                                 <p className="build-form__hint build-form__hint--muted">
                                   Utilisez ce champ lorsque aucun catalogue de sorts n'est disponible pour ce niveau.
                                 </p>
@@ -1194,7 +1470,13 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   )
                 })}
               </div>
-              <button type="submit">{isEditing ? 'Mettre à jour le build' : 'Enregistrer le build'}</button>
+              <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+                {isSubmitting
+                  ? 'Enregistrement en cours…'
+                  : isEditing
+                    ? 'Mettre à jour le build'
+                    : 'Enregistrer le build'}
+              </button>
             </form>
           ) : (
             <p className="empty">Sélectionnez un build pour le modifier ou créez-en un nouveau.</p>

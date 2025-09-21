@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Ability } from '../types'
 import { Panel } from './Panel'
-import { IconCard } from './IconCard'
 import { getIconUrl } from '../utils/icons'
 
 interface AbilityReferenceProps {
@@ -90,73 +89,102 @@ export function AbilityReference({ abilities }: AbilityReferenceProps) {
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
-      <div className="icon-grid ability-library">
-        {filtered.map((ability) => (
-          <IconCard
-            key={ability.name}
-            name={ability.name}
-            iconUrl={getIconUrl('ability', ability.name, ability.image_path)}
-          >
-            {ability.description ? (
-              <p className="icon-grid__tooltip-description">{ability.description}</p>
-            ) : null}
-            {ability.uses.length ? (
-              <div className="icon-grid__tooltip-section">
-                <strong>Usages clés</strong>
-                <ul className="icon-grid__tooltip-list">
-                  {ability.uses.map((use) => (
-                    <li key={use.name}>
-                      <span className="icon-grid__tooltip-list-title">{formatUseName(use.name)}</span>
-                      {use.description ? <span>{use.description}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {ability.checks.length ? (
-              <div className="icon-grid__tooltip-section">
-                <strong>Tests</strong>
-                <ul className="icon-grid__tooltip-list">
-                  {ability.checks.map((check) => (
-                    <li key={check.type}>
-                      <span className="icon-grid__tooltip-list-title">{formatCheckType(check.type)}</span>
-                      {check.description ? <span>{check.description}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {ability.skills.length ? (
-              <div className="icon-grid__tooltip-section">
-                <strong>Compétences liées</strong>
-                <ul className="icon-grid__tooltip-list">
-                  {ability.skills.map((skill) => (
-                    <li key={skill.name}>
-                      <span className="icon-grid__tooltip-list-title">{skill.name}</span>
-                      {skill.description ? <span>{skill.description}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {ability.saves.length ? (
-              <div className="icon-grid__tooltip-section">
-                <strong>Jets de sauvegarde</strong>
-                <ul className="ability-library__saves">
-                  {ability.saves.map((save, index) => (
-                    <li key={`${ability.name}-save-${index}`}>
-                      {save.description ?? '—'}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </IconCard>
-        ))}
-        {!filtered.length ? (
-          <p className="empty">Aucune caractéristique ne correspond à votre recherche.</p>
-        ) : null}
-      </div>
+      {filtered.length ? (
+        <div className="ability-library">
+          {filtered.map((ability) => {
+            const iconUrl = getIconUrl('ability', ability.name, ability.image_path)
+
+            return (
+              <article key={ability.name} className="ability-library__card">
+                <header className="ability-library__header">
+                  <div className="ability-library__icon" aria-hidden="true">
+                    {iconUrl ? (
+                      <img src={iconUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="ability-library__icon-placeholder">
+                        {ability.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="ability-library__heading">
+                    <h3 className="ability-library__title">{ability.name}</h3>
+                    {ability.description ? (
+                      <p className="ability-library__summary">{ability.description}</p>
+                    ) : null}
+                  </div>
+                </header>
+                <div className="ability-library__content">
+                  {ability.uses.length ? (
+                    <section className="ability-library__section">
+                      <h4 className="ability-library__section-title">Usages clés</h4>
+                      <ul className="ability-library__list">
+                        {ability.uses.map((use) => (
+                          <li key={use.name} className="ability-library__list-item">
+                            <span className="ability-library__list-title">
+                              {formatUseName(use.name)}
+                            </span>
+                            {use.description ? (
+                              <span className="ability-library__list-text">{use.description}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {ability.checks.length ? (
+                    <section className="ability-library__section">
+                      <h4 className="ability-library__section-title">Tests</h4>
+                      <ul className="ability-library__list">
+                        {ability.checks.map((check) => (
+                          <li key={check.type} className="ability-library__list-item">
+                            <span className="ability-library__list-title">
+                              {formatCheckType(check.type)}
+                            </span>
+                            {check.description ? (
+                              <span className="ability-library__list-text">{check.description}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {ability.skills.length ? (
+                    <section className="ability-library__section">
+                      <h4 className="ability-library__section-title">Compétences liées</h4>
+                      <ul className="ability-library__list">
+                        {ability.skills.map((skill) => (
+                          <li key={skill.name} className="ability-library__list-item">
+                            <span className="ability-library__list-title">{skill.name}</span>
+                            {skill.description ? (
+                              <span className="ability-library__list-text">{skill.description}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {ability.saves.length ? (
+                    <section className="ability-library__section">
+                      <h4 className="ability-library__section-title">Jets de sauvegarde</h4>
+                      <ul className="ability-library__list ability-library__list--saves">
+                        {ability.saves.map((save, index) => (
+                          <li key={`${ability.name}-save-${index}`} className="ability-library__list-item">
+                            <span className="ability-library__list-text">
+                              {save.description ?? '—'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="empty">Aucune caractéristique ne correspond à votre recherche.</p>
+      )}
     </Panel>
   )
 }

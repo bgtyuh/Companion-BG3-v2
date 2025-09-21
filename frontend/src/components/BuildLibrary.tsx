@@ -66,55 +66,6 @@ function matchesKeywords(value: string, keywords: readonly string[]): boolean {
 }
 
 const FEAT_KEYWORDS = ['feat', 'improvement', 'don', 'asi', 'amelioration'] as const
-const SUBCLASS_KEYWORDS = [
-  'subclass',
-  'college',
-  'tradition',
-  'serment',
-  'oath',
-  'cercle',
-  'circle',
-  'patron',
-  'pact',
-  'coeur',
-  'aspect',
-  'heart',
-  'boon',
-  'compagnon',
-  'companion',
-  'path',
-  'ecole',
-  'school',
-] as const
-const GENERAL_CHOICE_KEYWORDS = [
-  'choose',
-  'choisir',
-  'pick',
-  'select',
-  'spell',
-  'sort',
-  'cantrip',
-  'tour de magie',
-  'invocation',
-  'metamagie',
-  'metamagic',
-  'technique',
-  'style de combat',
-  'fighting style',
-  'maneuver',
-  'manoeuvre',
-  'expertise',
-  'companion',
-  'compagnon',
-  'aspect',
-  'coeur',
-  'preparer',
-  'preparation',
-  'liste de sorts',
-  'competence',
-  'prepared',
-  'infusion',
-] as const
 
 function createEmptyLevel(level = 1): BuildFormLevel {
   return {
@@ -699,12 +650,6 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                   const shouldSuggestFeat = classFeatureOptions.some((feature) =>
                     matchesKeywords(feature, FEAT_KEYWORDS),
                   )
-                  const shouldSuggestSubclassChoice = classFeatureOptions.some((feature) =>
-                    matchesKeywords(feature, SUBCLASS_KEYWORDS),
-                  )
-                  const shouldSuggestChoices =
-                    classFeatureOptions.some((feature) => matchesKeywords(feature, GENERAL_CHOICE_KEYWORDS)) ||
-                    Boolean(classProgression?.cantrips_known || classProgression?.spells_known)
                   const availableSpells = classNameForLevel
                     ? spellsByClass.get(classNameForLevel)?.get(level.level) ?? []
                     : []
@@ -733,11 +678,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                     }
                   }
                   const knownSpellsBefore = getKnownSpellsBeforeLevel(form.levels, index)
-                  const hasSpellNotes =
-                    Boolean(plan.summary.trim()) || plan.learned.length > 0 || plan.replacements.length > 0
-                  const displayChoiceField = shouldSuggestChoices || hasSpellNotes
                   const displayFeatField = shouldSuggestFeat || Boolean(level.feats)
-                  const displaySubclassChoice = shouldSuggestSubclassChoice || Boolean(level.subclass_choice)
                   const displaySpellsSection =
                     availableSpells.length > 0 ||
                     plan.learned.length > 0 ||
@@ -896,24 +837,6 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                           ) : null}
                         </div>
                       ) : null}
-
-                      {displayChoiceField ? (
-                        <label className="build-form__level-summary">
-                          Choix imposés par le niveau
-                          <textarea
-                            rows={2}
-                            value={plan.summary}
-                            onChange={(event) =>
-                              updateSpellPlan(index, (current) => ({
-                                ...current,
-                                summary: event.target.value,
-                              }))
-                            }
-                            placeholder="Notez les sorts appris, styles de combat, invocations, maîtrises…"
-                          />
-                        </label>
-                      ) : null}
-
                       {subclassFeatures.length ? (
                         <div className="build-form__level-section">
                           <h5>Caractéristiques de sous-classe</h5>
@@ -927,28 +850,7 @@ export function BuildLibrary({ builds, races, classes, onCreate, onUpdate, onDel
                               </li>
                             ))}
                           </ul>
-                          {displaySubclassChoice ? (
-                            <label>
-                              Choix de sous-classe ou option liée
-                              <textarea
-                                rows={2}
-                                value={level.subclass_choice ?? ''}
-                                onChange={(event) => updateLevel(index, { subclass_choice: event.target.value })}
-                                placeholder="Indiquez le serment, la tradition ou l’option sélectionnée."
-                              />
-                            </label>
-                          ) : null}
                         </div>
-                      ) : displaySubclassChoice ? (
-                        <label>
-                          Choix de sous-classe
-                          <textarea
-                            rows={2}
-                            value={level.subclass_choice ?? ''}
-                            onChange={(event) => updateLevel(index, { subclass_choice: event.target.value })}
-                            placeholder="Précisez la sous-classe retenue."
-                          />
-                        </label>
                       ) : null}
 
                       {displayFeatField ? (

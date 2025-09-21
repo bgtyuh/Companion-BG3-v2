@@ -25,6 +25,7 @@ export interface Build {
   subclass?: string | null
   notes?: string | null
   skill_choices: string[]
+  recommended_equipment?: Partial<Record<EquipmentSlotKey, string>>
   levels: BuildLevel[]
 }
 

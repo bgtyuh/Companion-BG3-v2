@@ -1189,6 +1189,76 @@ button:focus-visible {
   gap: 0.25rem;
 }
 
+.party-form__build-check {
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+  background: rgba(16, 28, 52, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.party-form__build-check-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.party-form__build-check-header h4 {
+  margin: 0;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.82rem;
+}
+
+.party-form__build-check-apply {
+  padding: 0.6rem 1.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.party-form__build-check-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.party-form__build-check-list ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.party-form__build-check-note {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.party-form__build-check-warning {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.party-form__build-check-success {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.toggle-grid__option--recommended {
+  color: var(--color-text-secondary);
+}
+
+.toggle-grid__option--recommended input {
+  accent-color: var(--color-accent);
+}
+
 .ability-editor {
   display: grid;
   gap: 0.65rem;
@@ -1347,6 +1417,29 @@ button:focus-visible {
   border: 1px solid rgba(245, 194, 102, 0.35);
   color: var(--color-accent);
   font-size: 0.9rem;
+}
+
+.character-sheet__next-step-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.character-sheet__next-step-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--color-text-primary);
+}
+
+.character-sheet__next-step-list li {
+  color: var(--color-text-primary);
+}
+
+.character-sheet__next-step-emphasis {
+  color: var(--color-danger);
+  font-weight: 600;
 }
 
 .character-sheet__stats {

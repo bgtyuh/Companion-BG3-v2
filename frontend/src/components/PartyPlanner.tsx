@@ -14,7 +14,7 @@ import type {
   Spell,
 } from '../types'
 import { equipmentSlotKeys } from '../types'
-import { getSpellLevelShortLabel, sortSpellsByLevel } from '../utils/spells'
+import { computeBuildKnownSpells, getSpellLevelShortLabel, sortSpellsByLevel } from '../utils/spells'
 import { downloadJSON, readJSONFile } from '../utils/file'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { computePartyMetrics, PARTY_ACT_OPTIONS, PARTY_ROLE_OPTIONS } from '../utils/party'
@@ -220,6 +220,57 @@ function toggleValue<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
 }
 
+function normalizeStringList(values: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const value of values) {
+    const trimmed = typeof value === 'string' ? value.trim() : ''
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+
+  return normalized.sort((a, b) => a.localeCompare(b, 'fr'))
+}
+
+function extractRecommendedEquipment(build: Build | null | undefined): Partial<Record<EquipmentSlotKey, string>> {
+  if (!build) return {}
+  const raw = (build as { recommended_equipment?: unknown }).recommended_equipment
+  if (!raw || typeof raw !== 'object') {
+    return {}
+  }
+
+  const result: Partial<Record<EquipmentSlotKey, string>> = {}
+  for (const slot of equipmentSlotKeys) {
+    const value = (raw as Record<string, unknown>)[slot]
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed) {
+        result[slot] = trimmed
+      }
+    }
+  }
+  return result
+}
+
+function getLatestSubclassChoice(build: Build, upToLevel: number): string | null {
+  const relevantLevels = build.levels
+    .filter((level) => Number.isInteger(level.level) && level.level <= upToLevel)
+    .sort((a, b) => a.level - b.level)
+
+  for (let index = relevantLevels.length - 1; index >= 0; index -= 1) {
+    const choice = relevantLevels[index]?.subclass_choice?.trim()
+    if (choice) {
+      return choice
+    }
+  }
+
+  return build.subclass?.trim() ?? null
+}
+
 export function PartyPlanner({
   builds,
   races,
@@ -268,6 +319,40 @@ export function PartyPlanner({
   const [editingMember, setEditingMember] = useState<PartyMember | null>(null)
   const [spellQuery, setSpellQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const previousBuildSignatureRef = useRef<string | null>(null)
+
+  const editingBuild = useMemo(
+    () => (editingMember?.buildId != null ? builds.find((build) => build.id === editingMember.buildId) ?? null : null),
+    [builds, editingMember?.buildId],
+  )
+
+  const recommendedSkills = useMemo(
+    () => (editingBuild ? normalizeStringList(editingBuild.skill_choices ?? []) : []),
+    [editingBuild],
+  )
+  const recommendedSkillsSet = useMemo(() => new Set(recommendedSkills), [recommendedSkills])
+
+  const recommendedSubclass = useMemo(
+    () => (editingBuild && editingMember ? getLatestSubclassChoice(editingBuild, editingMember.level) : null),
+    [editingBuild, editingMember],
+  )
+
+  const recommendedEquipment = useMemo(() => extractRecommendedEquipment(editingBuild), [editingBuild])
+
+  const buildSpellTargets = useMemo(
+    () =>
+      editingBuild && editingMember
+        ? computeBuildKnownSpells(editingBuild.levels ?? [], editingMember.level)
+        : null,
+    [editingBuild, editingMember],
+  )
+
+  const buildSkillSignature = useMemo(() => {
+    if (!editingMember?.buildId) {
+      return ''
+    }
+    return `${editingMember.buildId}:${recommendedSkills.join('|')}`
+  }, [editingMember?.buildId, recommendedSkills])
 
   const partyMetrics = useMemo(
     () =>
@@ -359,6 +444,165 @@ export function PartyPlanner({
     }
   }, [members, selectedId])
 
+  useEffect(() => {
+    if (!editingMember || !editingBuild) {
+      previousBuildSignatureRef.current = null
+      return
+    }
+
+    if (!buildSkillSignature) {
+      previousBuildSignatureRef.current = null
+      return
+    }
+
+    if (previousBuildSignatureRef.current === buildSkillSignature) {
+      return
+    }
+
+    previousBuildSignatureRef.current = buildSkillSignature
+
+    if (!recommendedSkills.length) {
+      return
+    }
+
+    setEditingMember((state) => {
+      if (!state || state.id !== editingMember.id) {
+        return state
+      }
+      const skillSet = new Set(state.skills)
+      let changed = false
+      const nextSkills = [...state.skills]
+      for (const skill of recommendedSkills) {
+        if (!skillSet.has(skill)) {
+          skillSet.add(skill)
+          nextSkills.push(skill)
+          changed = true
+        }
+      }
+      if (!changed) {
+        return state
+      }
+      nextSkills.sort((a, b) => a.localeCompare(b, 'fr'))
+      return { ...state, skills: nextSkills }
+    })
+  }, [buildSkillSignature, editingBuild, editingMember, recommendedSkills, setEditingMember])
+
+  useEffect(() => {
+    if (!editingMember || !recommendedSubclass) {
+      return
+    }
+    const current = editingMember.subclass?.trim()
+    if (current) {
+      return
+    }
+    setEditingMember((state) => {
+      if (!state || state.id !== editingMember.id) {
+        return state
+      }
+      return { ...state, subclass: recommendedSubclass }
+    })
+  }, [editingMember, recommendedSubclass, setEditingMember])
+
+  const buildAlignment = useMemo(() => {
+    if (!editingMember || !editingBuild) {
+      return null
+    }
+
+    const recommendedSpells = buildSpellTargets?.known ?? []
+    const recommendedSpellSet = new Set(recommendedSpells)
+    const removalSet = new Set(buildSpellTargets?.removed ?? [])
+    const missingSpells = recommendedSpells.filter((spell) => !editingMember.spells.includes(spell))
+    const spellsToRemove = [...removalSet]
+      .filter((spell) => editingMember.spells.includes(spell))
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+    const extraSpells = editingMember.spells
+      .filter((spell) => !recommendedSpellSet.has(spell) && !removalSet.has(spell))
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+    const skillMissing = recommendedSkills
+      .filter((skill) => !editingMember.skills.includes(skill))
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+    const skillExtra = editingMember.skills
+      .filter((skill) => !recommendedSkillsSet.has(skill))
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+    const recommendedClass = editingBuild.class_name?.trim() ?? null
+    const currentClass = editingMember.class_name?.trim() ?? null
+    const classDiffers = Boolean(recommendedClass && recommendedClass !== currentClass)
+    const normalizedRecommendedSubclass = recommendedSubclass?.trim() ?? null
+    const currentSubclass = editingMember.subclass?.trim() ?? null
+    const subclassDiffers = Boolean(
+      normalizedRecommendedSubclass && normalizedRecommendedSubclass !== currentSubclass,
+    )
+    const equipmentDiffs = equipmentSlotOrder
+      .map((slot) => {
+        const recommendedValue = recommendedEquipment[slot]
+        if (!recommendedValue) {
+          return null
+        }
+        const currentValue = editingMember.equipment?.[slot] ?? ''
+        if (currentValue === recommendedValue) {
+          return null
+        }
+        return {
+          slot,
+          label: equipmentSlotLabels[slot],
+          recommended: recommendedValue,
+          current: currentValue || null,
+        }
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          slot: EquipmentSlotKey
+          label: string
+          recommended: string
+          current: string | null
+        } => entry != null,
+      )
+    const hasEquipmentRecommendations = equipmentSlotOrder.some((slot) =>
+      Boolean(recommendedEquipment[slot]),
+    )
+    const hasSpellGuidance = recommendedSpells.length > 0 || removalSet.size > 0
+    const hasSkillGuidance = recommendedSkills.length > 0
+    const hasDifferences =
+      missingSpells.length > 0 ||
+      spellsToRemove.length > 0 ||
+      extraSpells.length > 0 ||
+      skillMissing.length > 0 ||
+      skillExtra.length > 0 ||
+      classDiffers ||
+      subclassDiffers ||
+      equipmentDiffs.length > 0
+
+    return {
+      recommendedClass,
+      currentClass,
+      classDiffers,
+      recommendedSubclass: normalizedRecommendedSubclass,
+      currentSubclass,
+      subclassDiffers,
+      missingSpells,
+      spellsToRemove,
+      extraSpells,
+      recommendedSpells,
+      skillMissing,
+      skillExtra,
+      equipmentDiffs,
+      hasDifferences,
+      hasSpellGuidance,
+      hasSkillGuidance,
+      hasEquipmentRecommendations,
+    }
+  }, [
+    buildSpellTargets,
+    editingBuild,
+    editingMember,
+    recommendedEquipment,
+    recommendedSkills,
+    recommendedSkillsSet,
+    recommendedSubclass,
+  ])
+
   function startCreate() {
     const member = createEmptyMember()
     setEditingMember(member)
@@ -402,6 +646,42 @@ export function PartyPlanner({
     if (selectedId === id) {
       setSelectedId(null)
     }
+  }
+
+  function applyBuildRecommendations() {
+    if (!editingMember || !editingBuild) {
+      return
+    }
+
+    const targetSpells = buildSpellTargets?.known ?? []
+    const skills = recommendedSkills
+    const recommendedClass = editingBuild.class_name?.trim() ?? null
+    const subclassChoice = recommendedSubclass?.trim() ?? null
+
+    setEditingMember((state) => {
+      if (!state || state.id !== editingMember.id) {
+        return state
+      }
+
+      const baseEquipment = state.equipment ? { ...state.equipment } : {}
+      let equipmentChanged = false
+      for (const slot of equipmentSlotKeys) {
+        const recommendedValue = recommendedEquipment[slot]
+        if (recommendedValue && baseEquipment[slot] !== recommendedValue) {
+          baseEquipment[slot] = recommendedValue
+          equipmentChanged = true
+        }
+      }
+
+      return {
+        ...state,
+        class_name: recommendedClass ?? state.class_name,
+        subclass: subclassChoice ?? state.subclass,
+        skills: skills.length ? skills : state.skills,
+        spells: targetSpells.length ? targetSpells : state.spells,
+        equipment: equipmentChanged ? baseEquipment : state.equipment,
+      }
+    })
   }
 
   function handleEquipmentChange(slot: EquipmentSlotKey, value: string) {
@@ -767,24 +1047,167 @@ export function PartyPlanner({
                   <div>
                     <h4>Compétences</h4>
                     <div className="toggle-grid">
-                      {skillOptions.map((skill) => (
-                        <label key={skill}>
-                          <input
-                            type="checkbox"
-                            checked={editingMember.skills.includes(skill)}
-                            onChange={() =>
-                              setEditingMember({
-                                ...editingMember,
-                                skills: toggleValue(editingMember.skills, skill),
-                              })
-                            }
-                          />
-                          {skill}
-                        </label>
-                      ))}
+                      {skillOptions.map((skill) => {
+                        const isRecommended = recommendedSkillsSet.has(skill)
+                        const labelClassName = isRecommended
+                          ? 'toggle-grid__option toggle-grid__option--recommended'
+                          : 'toggle-grid__option'
+                        return (
+                          <label key={skill} className={labelClassName}>
+                            <input
+                              type="checkbox"
+                              checked={editingMember.skills.includes(skill)}
+                              onChange={() =>
+                                setEditingMember({
+                                  ...editingMember,
+                                  skills: toggleValue(editingMember.skills, skill),
+                                })
+                              }
+                            />
+                            {skill}
+                          </label>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
+
+                {editingBuild ? (
+                  <section className="party-form__build-check">
+                    <div className="party-form__build-check-header">
+                      <h4>Alignement avec {editingBuild.name}</h4>
+                      <button
+                        type="button"
+                        className="party-form__build-check-apply"
+                        onClick={applyBuildRecommendations}
+                      >
+                        Appliquer le build
+                      </button>
+                    </div>
+                    {buildAlignment ? (
+                      buildAlignment.hasDifferences ? (
+                        <ul className="party-form__build-check-list">
+                          {buildAlignment.recommendedClass ? (
+                            <li>
+                              <strong>Classe :</strong>{' '}
+                              {buildAlignment.classDiffers ? (
+                                <>
+                                  <span className="party-form__build-check-warning">
+                                    {buildAlignment.recommendedClass}
+                                  </span>{' '}
+                                  <span className="party-form__build-check-note">
+                                    Actuel : {buildAlignment.currentClass || '—'}
+                                  </span>
+                                </>
+                              ) : (
+                                <span>Alignée avec le build.</span>
+                              )}
+                            </li>
+                          ) : null}
+                          {buildAlignment.recommendedSubclass ? (
+                            <li>
+                              <strong>Spécialisation :</strong>{' '}
+                              {buildAlignment.subclassDiffers ? (
+                                <>
+                                  <span className="party-form__build-check-warning">
+                                    {buildAlignment.recommendedSubclass}
+                                  </span>{' '}
+                                  <span className="party-form__build-check-note">
+                                    Actuelle : {buildAlignment.currentSubclass || '—'}
+                                  </span>
+                                </>
+                              ) : (
+                                <span>Alignée avec le build.</span>
+                              )}
+                            </li>
+                          ) : null}
+                          {buildAlignment.hasSkillGuidance ? (
+                            <li>
+                              <strong>Compétences :</strong>{' '}
+                              {buildAlignment.skillMissing.length || buildAlignment.skillExtra.length ? (
+                                <ul>
+                                  {buildAlignment.skillMissing.length ? (
+                                    <li>
+                                      <span className="party-form__build-check-warning">À ajouter :</span>{' '}
+                                      {buildAlignment.skillMissing.join(', ')}
+                                    </li>
+                                  ) : null}
+                                  {buildAlignment.skillExtra.length ? (
+                                    <li>
+                                      <span className="party-form__build-check-warning">À retirer :</span>{' '}
+                                      {buildAlignment.skillExtra.join(', ')}
+                                    </li>
+                                  ) : null}
+                                </ul>
+                              ) : (
+                                <span>Alignées avec le build.</span>
+                              )}
+                            </li>
+                          ) : null}
+                          {buildAlignment.hasSpellGuidance ? (
+                            <li>
+                              <strong>Sorts :</strong>{' '}
+                              {buildAlignment.missingSpells.length ||
+                              buildAlignment.spellsToRemove.length ||
+                              buildAlignment.extraSpells.length ? (
+                                <ul>
+                                  {buildAlignment.missingSpells.length ? (
+                                    <li>
+                                      <span className="party-form__build-check-warning">À apprendre :</span>{' '}
+                                      {buildAlignment.missingSpells.join(', ')}
+                                    </li>
+                                  ) : null}
+                                  {buildAlignment.spellsToRemove.length ? (
+                                    <li>
+                                      <span className="party-form__build-check-warning">À retirer :</span>{' '}
+                                      {buildAlignment.spellsToRemove.join(', ')}
+                                    </li>
+                                  ) : null}
+                                  {buildAlignment.extraSpells.length ? (
+                                    <li>
+                                      <span className="party-form__build-check-warning">Hors plan :</span>{' '}
+                                      {buildAlignment.extraSpells.join(', ')}
+                                    </li>
+                                  ) : null}
+                                </ul>
+                              ) : (
+                                <span>Alignés avec le build.</span>
+                              )}
+                            </li>
+                          ) : null}
+                          {buildAlignment.hasEquipmentRecommendations ? (
+                            <li>
+                              <strong>Équipement :</strong>{' '}
+                              {buildAlignment.equipmentDiffs.length ? (
+                                <ul>
+                                  {buildAlignment.equipmentDiffs.map((entry) => (
+                                    <li key={entry.slot}>
+                                      {entry.label} → {entry.recommended}
+                                      <span className="party-form__build-check-note">
+                                        {' '}
+                                        (actuel : {entry.current ?? 'non équipé'})
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <span>Aligné avec les recommandations.</span>
+                              )}
+                            </li>
+                          ) : null}
+                        </ul>
+                      ) : (
+                        <p className="party-form__build-check-success">
+                          Tout est aligné avec le plan pour le niveau actuel.
+                        </p>
+                      )
+                    ) : (
+                      <p className="party-form__build-check-success">
+                        Sélectionnez un compagnon pour consulter le détail du build.
+                      </p>
+                    )}
+                  </section>
+                ) : null}
 
                 <section className="equipment-editor">
                   <h4>Équipement</h4>

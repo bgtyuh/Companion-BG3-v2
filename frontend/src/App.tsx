@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
 import type { Build, Enemy, LootItem } from './types'
@@ -14,17 +14,6 @@ import { AbilityReference } from './components/AbilityReference'
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-}
-
-function useFetchWhenOpened<TData>(
-  isOpen: boolean,
-  { isFetched, isFetching, refetch }: Pick<UseQueryResult<TData>, 'isFetched' | 'isFetching' | 'refetch'>,
-) {
-  useEffect(() => {
-    if (isOpen && !isFetched && !isFetching) {
-      void refetch()
-    }
-  }, [isOpen, isFetched, isFetching, refetch])
 }
 
 function App() {
@@ -57,42 +46,52 @@ function App() {
   const armoursQuery = useQuery({
     queryKey: ['armours'],
     queryFn: async () => sortByName(await api.getArmours()),
+    enabled: openedEquipmentTabs.armours,
   })
   const ringsQuery = useQuery({
     queryKey: ['rings'],
     queryFn: async () => sortByName(await api.getRings()),
+    enabled: openedEquipmentTabs.rings,
   })
   const amuletsQuery = useQuery({
     queryKey: ['amulets'],
     queryFn: async () => sortByName(await api.getAmulets()),
+    enabled: openedEquipmentTabs.amulets,
   })
   const cloaksQuery = useQuery({
     queryKey: ['cloaks'],
     queryFn: async () => sortByName(await api.getCloaks()),
+    enabled: openedEquipmentTabs.cloaks,
   })
   const clothingQuery = useQuery({
     queryKey: ['clothing'],
     queryFn: async () => sortByName(await api.getClothing()),
+    enabled: openedEquipmentTabs.clothing,
   })
   const footwearsQuery = useQuery({
     queryKey: ['footwears'],
     queryFn: async () => sortByName(await api.getFootwears()),
+    enabled: openedEquipmentTabs.footwears,
   })
   const handwearsQuery = useQuery({
     queryKey: ['handwears'],
     queryFn: async () => sortByName(await api.getHandwears()),
+    enabled: openedEquipmentTabs.handwears,
   })
   const headwearsQuery = useQuery({
     queryKey: ['headwears'],
     queryFn: async () => sortByName(await api.getHeadwears()),
+    enabled: openedEquipmentTabs.headwears,
   })
   const shieldsQuery = useQuery({
     queryKey: ['shields'],
     queryFn: async () => sortByName(await api.getShields()),
+    enabled: openedEquipmentTabs.shields,
   })
   const weaponsQuery = useQuery({
     queryKey: ['weapons'],
     queryFn: async () => sortByName(await api.getWeapons()),
+    enabled: openedEquipmentTabs.weapons,
   })
   const spellsQuery = useQuery({
     queryKey: ['spells'],
@@ -143,17 +142,6 @@ function App() {
     weaponsQuery,
   ] as const
   const queries = [...primaryQueries, ...equipmentQueries]
-
-  useFetchWhenOpened(openedEquipmentTabs.armours, armoursQuery)
-  useFetchWhenOpened(openedEquipmentTabs.shields, shieldsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.weapons, weaponsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.clothing, clothingQuery)
-  useFetchWhenOpened(openedEquipmentTabs.headwears, headwearsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.handwears, handwearsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.footwears, footwearsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.cloaks, cloaksQuery)
-  useFetchWhenOpened(openedEquipmentTabs.rings, ringsQuery)
-  useFetchWhenOpened(openedEquipmentTabs.amulets, amuletsQuery)
 
   function handleEquipmentTabChange(tabId: EquipmentTabId) {
     setOpenedEquipmentTabs((previous) => {

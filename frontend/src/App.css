@@ -1616,6 +1616,12 @@ button:focus-visible {
   min-height: 0;
   height: 100%;
   z-index: 0;
+  overflow: visible;
+}
+
+.equipment-slot:focus-within,
+.equipment-slot:hover {
+  z-index: 250;
 }
 
 .equipment-slot--read-only {

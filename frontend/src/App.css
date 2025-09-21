@@ -295,6 +295,12 @@ button:focus-visible {
   text-decoration: underline;
 }
 
+.link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .link--danger {
   color: var(--color-danger);
 }
@@ -429,6 +435,30 @@ button:focus-visible {
   gap: 0.9rem;
 }
 
+.build-library__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.build-library__search {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+
+.build-library__sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.build-library__sort select {
+  min-width: 10.5rem;
+}
+
 .build-library__list ul {
   list-style: none;
   margin: 0;
@@ -454,14 +484,37 @@ button:focus-visible {
   color: var(--color-text-secondary);
 }
 
+.build-library__list li.empty {
+  justify-content: center;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
 .build-library__list li.active {
   border-color: rgba(245, 194, 102, 0.55);
   box-shadow: 0 0 0 1px rgba(245, 194, 102, 0.3);
 }
 
+.build-library__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.build-library__item-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.build-library__item-meta {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
 .build-library__actions {
   display: flex;
   gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .build-library__details {
@@ -487,8 +540,26 @@ button:focus-visible {
   gap: 0.75rem;
 }
 
+.build-form__title-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .build-form__header h3 {
   margin: 0;
+}
+
+.build-form__badge {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(245, 194, 102, 0.16);
+  border: 1px solid rgba(245, 194, 102, 0.35);
+  color: rgba(245, 194, 102, 0.9);
 }
 
 .build-form__close {
@@ -508,6 +579,33 @@ button:focus-visible {
   color: var(--color-text-primary);
   background: rgba(148, 163, 184, 0.18);
   outline: none;
+}
+
+.build-form__status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.4rem 0 0.2rem;
+}
+
+.build-form__error {
+  margin: 0;
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.build-form__error-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: #fecaca;
+}
+
+.build-form__error--inline {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
 }
 
 .build-form__levels {

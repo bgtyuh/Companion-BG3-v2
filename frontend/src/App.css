@@ -647,6 +647,14 @@ button:focus-visible {
   gap: 0.6rem;
 }
 
+.build-form__level-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .build-form__spell-options {
   display: grid;
   gap: 0.4rem;

@@ -886,7 +886,7 @@ export function PartyPlanner({
           importedMembers = parsed
           importMode = Array.isArray(data) ? 'replace' : 'append'
         }
-      } catch (error) {
+      } catch {
         // Not a JSON payload – fall back to Showdown parsing
       }
 

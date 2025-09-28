@@ -15,7 +15,7 @@ import type {
 } from '../types'
 import { equipmentSlotKeys } from '../types'
 import { computeBuildKnownSpells, getSpellLevelShortLabel, sortSpellsByLevel } from '../utils/spells'
-import { downloadJSON, readJSONFile } from '../utils/file'
+import { downloadJSON } from '../utils/file'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { computePartyMetrics, PARTY_ACT_OPTIONS, PARTY_ROLE_OPTIONS } from '../utils/party'
 import { CharacterSheet } from './CharacterSheet'
@@ -194,10 +194,164 @@ function sanitizeMember(member: PartyMemberInput): PartyMember {
 }
 
 function parseImportedMembers(data: unknown): PartyMember[] | null {
-  if (!Array.isArray(data)) return null
-  if (!data.every((item) => isValidPartyMember(item))) return null
+  if (Array.isArray(data)) {
+    if (!data.every((item) => isValidPartyMember(item))) return null
+    return data.map((member) => sanitizeMember(member as PartyMemberInput))
+  }
 
-  return data.map((member) => sanitizeMember(member as PartyMemberInput))
+  if (isValidPartyMember(data)) {
+    return [sanitizeMember(data as PartyMemberInput)]
+  }
+
+  return null
+}
+
+interface PokemonShowdownEntry {
+  name: string
+  item?: string
+  ability?: string
+  teraType?: string
+  nature?: string
+  evs?: string
+  level?: number
+  moves: string[]
+  extraNotes: string[]
+}
+
+function parsePokemonBlock(lines: string[]): PartyMember | null {
+  if (!lines.length) return null
+
+  const firstLineMatch = lines[0]?.match(/^(.*?)(?:\s*@\s*(.*))?$/)
+  const name = firstLineMatch?.[1]?.trim()
+  if (!name) {
+    return null
+  }
+
+  const entry: PokemonShowdownEntry = {
+    name,
+    item: firstLineMatch?.[2]?.trim() || undefined,
+    moves: [],
+    extraNotes: [],
+  }
+
+  for (const rawLine of lines.slice(1)) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    if (/^Ability:/i.test(line)) {
+      entry.ability = line.replace(/^Ability:\s*/i, '').trim()
+      continue
+    }
+
+    if (/^Tera Type:/i.test(line)) {
+      entry.teraType = line.replace(/^Tera Type:\s*/i, '').trim()
+      continue
+    }
+
+    if (/^EVs:/i.test(line)) {
+      entry.evs = line.replace(/^EVs:\s*/i, '').trim()
+      continue
+    }
+
+    if (/^IVs:/i.test(line)) {
+      const ivs = line.replace(/^IVs:\s*/i, '').trim()
+      if (ivs) {
+        entry.extraNotes.push(`IVs : ${ivs}`)
+      }
+      continue
+    }
+
+    if (/^Level:/i.test(line)) {
+      const levelText = line.replace(/^Level:\s*/i, '').trim()
+      const parsedLevel = Number.parseInt(levelText, 10)
+      if (Number.isFinite(parsedLevel)) {
+        entry.level = parsedLevel
+      } else if (levelText) {
+        entry.extraNotes.push(`Niveau : ${levelText}`)
+      }
+      continue
+    }
+
+    if (/^Shiny:/i.test(line) || /^Gigantamax:/i.test(line) || /^Happiness:/i.test(line) || /^Friendship:/i.test(line)) {
+      entry.extraNotes.push(line)
+      continue
+    }
+
+    if (/^Nature:/i.test(line)) {
+      const natureText = line.replace(/^Nature:\s*/i, '').trim()
+      if (natureText) {
+        entry.nature = natureText
+      }
+      continue
+    }
+
+    if (line.startsWith('-')) {
+      const move = line.replace(/^-+\s*/, '').trim()
+      if (move) {
+        entry.moves.push(move)
+      }
+      continue
+    }
+
+    const natureMatch = line.match(/^([\w\s.'()-]+)\sNature$/i)
+    if (natureMatch) {
+      entry.nature = natureMatch[1]?.trim()
+      continue
+    }
+
+    if (/^[A-Za-z]+:\s/.test(line)) {
+      entry.extraNotes.push(line)
+      continue
+    }
+
+    entry.extraNotes.push(line)
+  }
+
+  const baseMember = createEmptyMember()
+  baseMember.name = entry.name
+  baseMember.level = entry.level ?? 50
+  baseMember.spells = entry.moves
+
+  const notes: string[] = []
+  if (entry.item) {
+    notes.push(`Objet : ${entry.item}`)
+  }
+  if (entry.ability) {
+    notes.push(`Talent : ${entry.ability}`)
+  }
+  if (entry.teraType) {
+    notes.push(`Téra-type : ${entry.teraType}`)
+  }
+  if (entry.nature) {
+    notes.push(`Nature : ${entry.nature}`)
+  }
+  if (entry.evs) {
+    notes.push(`EVs : ${entry.evs}`)
+  }
+  notes.push(...entry.extraNotes)
+
+  baseMember.notes = notes.join('\n')
+
+  return sanitizeMember(baseMember as PartyMemberInput)
+}
+
+function parsePokemonShowdownTeam(content: string): PartyMember[] | null {
+  const trimmed = content.trim()
+  if (!trimmed) return null
+
+  const rawBlocks = trimmed.split(/\r?\n\s*\r?\n/).map((block) => block.trim())
+  const members: PartyMember[] = []
+
+  for (const block of rawBlocks) {
+    if (!block) continue
+    const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    const parsed = parsePokemonBlock(lines)
+    if (parsed) {
+      members.push(parsed)
+    }
+  }
+
+  return members.length ? members : null
 }
 
 function createEmptyMember(): PartyMember {
@@ -721,16 +875,42 @@ export function PartyPlanner({
     if (!file) return
 
     try {
-      const data = await readJSONFile<unknown>(file)
-      const parsedMembers = parseImportedMembers(data)
+      const textContent = await file.text()
+      let importedMembers: PartyMember[] | null = null
+      let importMode: 'append' | 'replace' = 'append'
 
-      if (!parsedMembers) {
-        window.alert('Le fichier ne correspond pas au format attendu.')
+      try {
+        const data = JSON.parse(textContent) as unknown
+        const parsed = parseImportedMembers(data)
+        if (parsed) {
+          importedMembers = parsed
+          importMode = Array.isArray(data) ? 'replace' : 'append'
+        }
+      } catch {
+        // Not a JSON payload – fall back to Showdown parsing
+      }
+
+      if (!importedMembers) {
+        importedMembers = parsePokemonShowdownTeam(textContent)
+        importMode = 'append'
+      }
+
+      if (!importedMembers) {
+        window.alert('Le fichier ne correspond pas au format attendu (JSON ou import Pokémon).')
         return
       }
 
-      setMembers(parsedMembers)
-      setSelectedId(parsedMembers[0]?.id ?? null)
+      if (importMode === 'replace') {
+        setMembers(importedMembers)
+        setSelectedId(importedMembers[0]?.id ?? null)
+      } else {
+        const appendedMembers = importedMembers.map((member) =>
+          sanitizeMember({ ...(member as PartyMemberInput), id: crypto.randomUUID() } as PartyMemberInput),
+        )
+        setMembers((previousMembers) => [...previousMembers, ...appendedMembers])
+        setSelectedId(appendedMembers[0]?.id ?? null)
+      }
+
       setEditingMember(null)
       setSpellQuery('')
     } catch (error) {
@@ -764,7 +944,7 @@ export function PartyPlanner({
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/json"
+              accept=".json,.txt,application/json,text/plain"
               onChange={handleImport}
               hidden
             />

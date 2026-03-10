@@ -1,22 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap');
 
 :root {
-  font-family: 'Inter', 'Cardo', serif;
+  font-family: 'Outfit', 'Cormorant Garamond', sans-serif;
   line-height: 1.7;
   font-weight: 400;
   color: var(--color-text-primary);
-  background-color: #040814;
+  background-color: #040713;
   background-image:
-    radial-gradient(circle at 12% 22%, rgba(125, 211, 252, 0.1), transparent 55%),
-    radial-gradient(circle at 85% 10%, rgba(245, 194, 102, 0.12), transparent 60%),
-    radial-gradient(circle at 50% 75%, rgba(59, 130, 246, 0.1), transparent 65%),
-    linear-gradient(155deg, #040814 0%, #06152a 38%, #0b1f3a 100%);
+    radial-gradient(circle at 12% 18%, rgba(245, 158, 11, 0.14), transparent 52%),
+    radial-gradient(circle at 88% 12%, rgba(16, 185, 129, 0.14), transparent 58%),
+    radial-gradient(circle at 52% 78%, rgba(14, 165, 233, 0.12), transparent 62%),
+    linear-gradient(155deg, #040713 0%, #07162d 42%, #10243e 100%);
   min-height: 100vh;
   color-scheme: dark;
   --color-text-primary: #f8fafc;
-  --color-text-secondary: #d3dcff;
-  --color-text-muted: #94a3c8;
-  --color-accent: #f5c266;
+  --color-text-secondary: #d8e2ff;
+  --color-text-muted: #9caac7;
+  --color-accent: #f8b84e;
   --color-danger: #f76a8a;
   --color-danger-soft: rgba(247, 106, 138, 0.16);
   --blur-strength: 26px;
@@ -59,3 +59,4 @@ textarea {
   position: relative;
   display: flex;
 }
+

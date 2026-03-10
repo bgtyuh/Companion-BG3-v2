@@ -1,13 +1,10 @@
-import { useState } from 'react'
+import { Suspense, lazy, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
 import type { Build, Enemy, LootItem } from './types'
-import { BestiaryPanel } from './components/BestiaryPanel'
-import { BuildLibrary } from './components/BuildLibrary'
-import { EquipmentTabs, type EquipmentTabId } from './components/EquipmentTabs'
+import type { EquipmentTabId } from './components/EquipmentTabs'
 import { LootChecklist } from './components/LootChecklist'
-import { PartyPlanner } from './components/PartyPlanner'
 import { SpellLibrary } from './components/SpellLibrary'
 import { FeatLibrary } from './components/FeatLibrary'
 import { AbilityReference } from './components/AbilityReference'
@@ -16,8 +13,28 @@ const LOOT_QUERY_KEY = ['lootItems'] as const
 const BUILDS_QUERY_KEY = ['builds'] as const
 const ENEMIES_QUERY_KEY = ['enemies'] as const
 
+const PartyPlanner = lazy(() =>
+  import('./components/PartyPlanner').then((module) => ({ default: module.PartyPlanner })),
+)
+const BuildLibrary = lazy(() =>
+  import('./components/BuildLibrary').then((module) => ({ default: module.BuildLibrary })),
+)
+const EquipmentTabs = lazy(() =>
+  import('./components/EquipmentTabs').then((module) => ({ default: module.EquipmentTabs })),
+)
+const BestiaryPanel = lazy(() =>
+  import('./components/BestiaryPanel').then((module) => ({ default: module.BestiaryPanel })),
+)
+
 type NamedEntity = { name: string }
 type IdentifiedEntity = { id: number }
+type WorkspaceId = 'expedition' | 'compagnie' | 'arsenal'
+
+const WORKSPACES: ReadonlyArray<{ id: WorkspaceId; label: string; hint: string }> = [
+  { id: 'expedition', label: 'Expedition', hint: 'Loot, sorts, dons' },
+  { id: 'compagnie', label: 'Compagnie', hint: 'Planification et fiche perso' },
+  { id: 'arsenal', label: 'Arsenal', hint: 'Builds, equipement, bestiaire' },
+]
 
 function sortByName<T extends NamedEntity>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
@@ -25,6 +42,7 @@ function sortByName<T extends NamedEntity>(items: readonly T[]): T[] {
 
 function App() {
   const queryClient = useQueryClient()
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>('compagnie')
   const [openedEquipmentTabs, setOpenedEquipmentTabs] = useState<Record<EquipmentTabId, boolean>>({
     armours: true,
     shields: false,
@@ -36,6 +54,11 @@ function App() {
     cloaks: false,
     rings: false,
     amulets: false,
+  })
+  const workspaceRefs = useRef<Record<WorkspaceId, HTMLElement | null>>({
+    expedition: null,
+    compagnie: null,
+    arsenal: null,
   })
 
   const lootQuery = useQuery({
@@ -156,6 +179,20 @@ function App() {
         return previous
       }
       return { ...previous, [tabId]: true }
+    })
+  }
+
+  function handleWorkspaceSelect(workspaceId: WorkspaceId) {
+    setActiveWorkspace(workspaceId)
+    const targetWorkspace = workspaceRefs.current[workspaceId]
+    if (!targetWorkspace) {
+      return
+    }
+
+    targetWorkspace.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
     })
   }
 
@@ -280,8 +317,41 @@ function App() {
       {isLoading ? <div className="app__status">Chargement des grimoires et tablettes...</div> : null}
 
       {!isLoading ? (
+        <nav className="app__workspace-nav" aria-label="Navigation des espaces">
+          {WORKSPACES.map((workspace) => {
+            const buttonClassName = [
+              'app__workspace-tab',
+              activeWorkspace === workspace.id ? 'app__workspace-tab--active' : undefined,
+            ]
+              .filter(Boolean)
+              .join(' ')
+
+            return (
+              <button
+                key={workspace.id}
+                type="button"
+                className={buttonClassName}
+                onClick={() => handleWorkspaceSelect(workspace.id)}
+                aria-controls={`workspace-${workspace.id}`}
+                aria-pressed={activeWorkspace === workspace.id}
+              >
+                <span className="app__workspace-label">{workspace.label}</span>
+                <span className="app__workspace-hint">{workspace.hint}</span>
+              </button>
+            )
+          })}
+        </nav>
+      ) : null}
+
+      {!isLoading ? (
         <main className="app__grid">
-          <div className="app__column">
+          <section
+            id="workspace-expedition"
+            className="app__column"
+            ref={(element) => {
+              workspaceRefs.current.expedition = element
+            }}
+          >
             <LootChecklist
               items={lootItems}
               onCreate={handleCreateLoot}
@@ -290,49 +360,69 @@ function App() {
             />
             <SpellLibrary spells={spells} />
             <FeatLibrary feats={feats} />
-          </div>
+          </section>
 
-          <div className="app__column app__column--wide">
-            <PartyPlanner
-              builds={builds}
-              races={races}
-              classes={classes}
-              spells={spells}
-              backgrounds={backgrounds}
-              equipment={equipmentCollections}
-            />
-          </div>
+          <section
+            id="workspace-compagnie"
+            className="app__column app__column--wide"
+            ref={(element) => {
+              workspaceRefs.current.compagnie = element
+            }}
+          >
+            <Suspense fallback={<div className="app__status">Chargement du party planner...</div>}>
+              <PartyPlanner
+                builds={builds}
+                races={races}
+                classes={classes}
+                spells={spells}
+                backgrounds={backgrounds}
+                equipment={equipmentCollections}
+              />
+            </Suspense>
+          </section>
 
-          <div className="app__column">
-            <BuildLibrary
-              builds={builds}
-              races={races}
-              classes={classes}
-              onCreate={handleCreateBuild}
-              onUpdate={handleUpdateBuild}
-              onDelete={handleDeleteBuild}
-            />
-            <EquipmentTabs
-              armours={armours}
-              shields={shields}
-              weapons={weapons}
-              clothing={clothing}
-              headwears={headwears}
-              handwears={handwears}
-              footwears={footwears}
-              cloaks={cloaks}
-              rings={rings}
-              amulets={amulets}
-              onTabChange={handleEquipmentTabChange}
-            />
+          <section
+            id="workspace-arsenal"
+            className="app__column"
+            ref={(element) => {
+              workspaceRefs.current.arsenal = element
+            }}
+          >
+            <Suspense fallback={<div className="app__status">Chargement de la bibliotheque de builds...</div>}>
+              <BuildLibrary
+                builds={builds}
+                races={races}
+                classes={classes}
+                onCreate={handleCreateBuild}
+                onUpdate={handleUpdateBuild}
+                onDelete={handleDeleteBuild}
+              />
+            </Suspense>
+            <Suspense fallback={<div className="app__status">Chargement des equipements...</div>}>
+              <EquipmentTabs
+                armours={armours}
+                shields={shields}
+                weapons={weapons}
+                clothing={clothing}
+                headwears={headwears}
+                handwears={handwears}
+                footwears={footwears}
+                cloaks={cloaks}
+                rings={rings}
+                amulets={amulets}
+                onTabChange={handleEquipmentTabChange}
+              />
+            </Suspense>
             <AbilityReference abilities={abilities} />
-            <BestiaryPanel
-              enemies={enemies}
-              onCreate={handleCreateEnemy}
-              onUpdate={handleUpdateEnemy}
-              onDelete={handleDeleteEnemy}
-            />
-          </div>
+            <Suspense fallback={<div className="app__status">Chargement du bestiaire...</div>}>
+              <BestiaryPanel
+                enemies={enemies}
+                onCreate={handleCreateEnemy}
+                onUpdate={handleUpdateEnemy}
+                onDelete={handleDeleteEnemy}
+              />
+            </Suspense>
+          </section>
         </main>
       ) : null}
     </div>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useLocalStorage } from '../hooks'
 import type {
@@ -18,6 +18,7 @@ import { computeBuildKnownSpells, getSpellLevelShortLabel, sortSpellsByLevel } f
 import { downloadJSON, readJSONFile } from '../utils/file'
 import { equipmentSlotLabels, equipmentSlotOrder } from '../utils/equipment'
 import { computePartyMetrics, PARTY_ACT_OPTIONS, PARTY_ROLE_OPTIONS } from '../utils/party'
+import { createVersionedPartyExport, extractImportedMemberEntries } from '../utils/partyImport'
 import { CharacterSheet } from './CharacterSheet'
 import { Panel } from './Panel'
 import { PartyOverviewPanel } from './PartyOverviewPanel'
@@ -193,10 +194,30 @@ function sanitizeMember(member: PartyMemberInput): PartyMember {
 }
 
 function parseImportedMembers(data: unknown): PartyMember[] | null {
-  if (!Array.isArray(data)) return null
-  if (!data.every((item) => isValidPartyMember(item))) return null
+  const importedEntries = extractImportedMemberEntries(data)
+  if (!importedEntries) return null
+  if (!importedEntries.every((item) => isValidPartyMember(item))) return null
 
-  return data.map((member) => sanitizeMember(member as PartyMemberInput))
+  return importedEntries.map((member) => sanitizeMember(member as PartyMemberInput))
+}
+
+function createMemberEditSignature(member: PartyMember): string {
+  const sanitized = sanitizeMember(member as PartyMemberInput)
+  const sortedEquipment = equipmentSlotKeys.reduce<PartyEquipment>((acc, key) => {
+    const value = sanitized.equipment?.[key]
+    if (value) {
+      acc[key] = value
+    }
+    return acc
+  }, {})
+
+  return JSON.stringify({
+    ...sanitized,
+    level: sanitized.level,
+    skills: [...sanitized.skills].sort((a, b) => a.localeCompare(b, 'fr')),
+    spells: [...sanitized.spells].sort((a, b) => a.localeCompare(b, 'fr')),
+    equipment: sortedEquipment,
+  })
 }
 
 function createEmptyMember(): PartyMember {
@@ -319,6 +340,9 @@ export function PartyPlanner({
   const [spellQuery, setSpellQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previousBuildSignatureRef = useRef<string | null>(null)
+  const [editingBaseline, setEditingBaseline] = useState<string | null>(null)
+  const [formErrors, setFormErrors] = useState<{ name?: string; level?: string }>({})
+  const [plannerMessage, setPlannerMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
   const editingBuild = useMemo(
     () => (editingMember?.buildId != null ? builds.find((build) => build.id === editingMember.buildId) ?? null : null),
@@ -432,6 +456,34 @@ export function PartyPlanner({
     ? backgroundMap.get(backgroundSelection) ?? null
     : null
   const hasCustomBackground = Boolean(backgroundSelection && !backgroundMap.has(backgroundSelection))
+  const equippedSlotsCount = editingMember
+    ? equipmentSlotKeys.reduce((count, slot) => count + (editingMember.equipment?.[slot] ? 1 : 0), 0)
+    : 0
+  const highlightedSpells = editingMember?.spells.slice(0, 3) ?? []
+  const remainingSpellCount = Math.max((editingMember?.spells.length ?? 0) - highlightedSpells.length, 0)
+
+  const isDirty = useMemo(() => {
+    if (!editingMember || editingBaseline == null) {
+      return false
+    }
+    return createMemberEditSignature(editingMember) !== editingBaseline
+  }, [editingBaseline, editingMember])
+
+  useEffect(() => {
+    if (!isDirty) {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [isDirty])
 
   useEffect(() => {
     if (!members.length) {
@@ -602,29 +654,94 @@ export function PartyPlanner({
     recommendedSubclass,
   ])
 
-  function startCreate() {
-    const member = createEmptyMember()
-    setEditingMember(member)
-    setSelectedId(member.id)
+  function resetEditorState() {
+    setEditingMember(null)
+    setEditingBaseline(null)
     setSpellQuery('')
+    setFormErrors({})
   }
 
-  function startEdit(member: PartyMember) {
+  function confirmDiscardChanges(actionLabel: string): boolean {
+    if (!isDirty) {
+      return true
+    }
+
+    return window.confirm(
+      `Vous avez des modifications non enregistrees. Voulez-vous les abandonner pour ${actionLabel} ?`,
+    )
+  }
+
+  function beginEditing(member: PartyMember) {
     const editableMember = sanitizeMember(member as PartyMemberInput)
-    setEditingMember({
+    const nextEditingMember: PartyMember = {
       ...editableMember,
       abilityScores: { ...editableMember.abilityScores },
       spells: [...editableMember.spells],
       skills: [...editableMember.skills],
       equipment: { ...(editableMember.equipment ?? {}) },
-    })
-    setSelectedId(member.id)
+    }
+
+    setEditingMember(nextEditingMember)
+    setEditingBaseline(createMemberEditSignature(nextEditingMember))
+    setSelectedId(editableMember.id)
     setSpellQuery('')
+    setFormErrors({})
+    setPlannerMessage(null)
+  }
+
+  function validateDraft(member: PartyMember): { name?: string; level?: string } {
+    const errors: { name?: string; level?: string } = {}
+
+    if (!member.name.trim()) {
+      errors.name = 'Le nom du compagnon est obligatoire.'
+    }
+
+    if (!Number.isInteger(member.level) || member.level < 1 || member.level > 12) {
+      errors.level = 'Le niveau doit etre un entier entre 1 et 12.'
+    }
+
+    return errors
+  }
+
+  function handleSelectMember(id: string) {
+    if (selectedId === id) {
+      return
+    }
+
+    if (editingMember && editingMember.id !== id && !confirmDiscardChanges('changer de membre')) {
+      return
+    }
+
+    setSelectedId(id)
+    if (editingMember && editingMember.id !== id) {
+      resetEditorState()
+      setPlannerMessage({ type: 'info', text: 'Edition abandonnee lors du changement de membre.' })
+    }
+  }
+
+  function startCreate() {
+    if (!confirmDiscardChanges('creer un nouveau membre')) {
+      return
+    }
+
+    beginEditing(createEmptyMember())
+  }
+
+  function startEdit(member: PartyMember) {
+    if (editingMember && editingMember.id !== member.id && !confirmDiscardChanges('modifier un autre membre')) {
+      return
+    }
+
+    beginEditing(member)
   }
 
   function cancelEdit() {
-    setEditingMember(null)
-    setSpellQuery('')
+    if (!confirmDiscardChanges("annuler l'edition")) {
+      return
+    }
+
+    resetEditorState()
+    setPlannerMessage({ type: 'info', text: 'Edition annulee.' })
   }
 
   function saveMember(member: PartyMember) {
@@ -637,14 +754,27 @@ export function PartyPlanner({
       }
       return [...current, sanitized]
     })
-    setEditingMember(null)
+
+    resetEditorState()
+    setPlannerMessage({ type: 'success', text: 'Compagnon enregistre.' })
   }
 
   function removeMember(id: string) {
+    const removingEditedMember = editingMember?.id === id
+    if (removingEditedMember && !confirmDiscardChanges('retirer ce compagnon')) {
+      return
+    }
+
     setMembers((current) => current.filter((member) => member.id !== id))
     if (selectedId === id) {
       setSelectedId(null)
     }
+
+    if (removingEditedMember) {
+      resetEditorState()
+    }
+
+    setPlannerMessage({ type: 'info', text: "Compagnon retire de l'equipe." })
   }
 
   function applyBuildRecommendations() {
@@ -681,6 +811,8 @@ export function PartyPlanner({
         equipment: equipmentChanged ? baseEquipment : state.equipment,
       }
     })
+
+    setPlannerMessage({ type: 'info', text: 'Recommandations du build appliquees au brouillon.' })
   }
 
   function handleEquipmentChange(slot: EquipmentSlotKey, value: string) {
@@ -711,7 +843,8 @@ export function PartyPlanner({
   }
 
   function handleExport() {
-    downloadJSON(members, 'bg3-party-members.json')
+    downloadJSON(createVersionedPartyExport(members), 'bg3-party-members.json')
+    setPlannerMessage({ type: 'success', text: 'Equipe exportee en JSON versionne.' })
   }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
@@ -719,22 +852,36 @@ export function PartyPlanner({
     const file = input.files?.[0]
     if (!file) return
 
+    if (editingMember && !confirmDiscardChanges('importer une equipe')) {
+      input.value = ''
+      return
+    }
+
     try {
       const data = await readJSONFile<unknown>(file)
       const parsedMembers = parseImportedMembers(data)
 
       if (!parsedMembers) {
-        window.alert('Le fichier ne correspond pas au format attendu.')
+        setPlannerMessage({
+          type: 'error',
+          text: 'Import impossible: le fichier ne correspond pas au format attendu.',
+        })
         return
       }
 
       setMembers(parsedMembers)
       setSelectedId(parsedMembers[0]?.id ?? null)
-      setEditingMember(null)
-      setSpellQuery('')
+      resetEditorState()
+      setPlannerMessage({
+        type: 'success',
+        text: `${parsedMembers.length} compagnon(s) importe(s) avec succes.`,
+      })
     } catch (error) {
       console.error('Failed to import party members', error)
-      window.alert("Impossible d'importer les membres. Vérifiez le fichier.")
+      setPlannerMessage({
+        type: 'error',
+        text: "Impossible d'importer les membres. Verifiez le fichier JSON.",
+      })
     } finally {
       input.value = ''
     }
@@ -747,10 +894,25 @@ export function PartyPlanner({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editingMember) return
-    if (!editingMember.name.trim()) {
+
+    const normalizedDraft: PartyMember = {
+      ...editingMember,
+      name: editingMember.name.trim(),
+      level: Math.max(1, Math.min(12, editingMember.level)),
+    }
+    const validation = validateDraft(normalizedDraft)
+
+    setFormErrors(validation)
+
+    if (validation.name || validation.level) {
+      setPlannerMessage({
+        type: 'error',
+        text: 'Certaines informations sont invalides. Corrigez les champs signales.',
+      })
       return
     }
-    saveMember(editingMember)
+
+    saveMember(normalizedDraft)
   }
 
   return (
@@ -779,12 +941,15 @@ export function PartyPlanner({
           </>
         }
       >
+        {plannerMessage ? (
+          <p className={`party-planner__message party-planner__message--${plannerMessage.type}`}>{plannerMessage.text}</p>
+        ) : null}
         <div className="party-planner__layout">
           <div className="party-planner__roster">
             <ul>
               {members.map((member) => (
                 <li key={member.id} className={member.id === selectedId ? 'active' : ''}>
-                  <button className="link" onClick={() => setSelectedId(member.id)}>
+                  <button className="link" onClick={() => handleSelectMember(member.id)}>
                     <span className="party-planner__name">{member.name || 'Compagnon sans nom'}</span>{' '}
                     <span className="party-planner__meta">
                       {member.class_name ? `${member.class_name} · ` : ''}Niv. {member.level}
@@ -813,9 +978,16 @@ export function PartyPlanner({
                     <input
                       type="text"
                       value={editingMember.name}
-                      onChange={(event) => setEditingMember({ ...editingMember, name: event.target.value })}
+                      onChange={(event) => {
+                        setEditingMember({ ...editingMember, name: event.target.value })
+                        if (formErrors.name) {
+                          setFormErrors((current) => ({ ...current, name: undefined }))
+                        }
+                      }}
+                      className={formErrors.name ? 'party-form__input party-form__input--error' : 'party-form__input'}
                       required
                     />
+                    {formErrors.name ? <span className="party-form__error">{formErrors.name}</span> : null}
                   </label>
                   <label>
                     Niveau
@@ -824,10 +996,19 @@ export function PartyPlanner({
                       min={1}
                       max={12}
                       value={editingMember.level}
-                      onChange={(event) =>
-                        setEditingMember({ ...editingMember, level: Number.parseInt(event.target.value, 10) })
-                      }
+                      onChange={(event) => {
+                        const parsedLevel = Number.parseInt(event.target.value, 10)
+                        setEditingMember({
+                          ...editingMember,
+                          level: Number.isFinite(parsedLevel) ? parsedLevel : 1,
+                        })
+                        if (formErrors.level) {
+                          setFormErrors((current) => ({ ...current, level: undefined }))
+                        }
+                      }}
+                      className={formErrors.level ? 'party-form__input party-form__input--error' : 'party-form__input'}
                     />
+                    {formErrors.level ? <span className="party-form__error">{formErrors.level}</span> : null}
                   </label>
                   <label>
                     Acte
@@ -1211,9 +1392,15 @@ export function PartyPlanner({
                 <section className="equipment-editor">
                   <h4>Equipement</h4>
                   <div className="equipment-layout equipment-layout--editor">
-                    <div className="equipment-layout__character" aria-hidden="true">
-                      <span>Portrait</span>
-                      <span>en préparation</span>
+                    <div className="equipment-layout__character equipment-layout__character--summary">
+                      <strong>{editingMember.name.trim() || 'Compagnon en cours'}</strong>
+                      <span>{editingMember.class_name ?? 'Classe non definie'} - Niv. {editingMember.level}</span>
+                      <span>{editingMember.race ?? 'Race non definie'}</span>
+                      <span>{equippedSlotsCount} emplacement(s) equipe(s)</span>
+                      <span>
+                        Sorts: {highlightedSpells.length ? highlightedSpells.join(', ') : 'aucun'}
+                        {remainingSpellCount > 0 ? ` (+${remainingSpellCount})` : ''}
+                      </span>
                     </div>
                     {equipmentSlotOrder.map((slot) => (
                       <label key={slot} className={`equipment-slot equipment-slot--${slot}`}>
@@ -1222,7 +1409,7 @@ export function PartyPlanner({
                           value={editingMember.equipment?.[slot] ?? ''}
                           onChange={(event) => handleEquipmentChange(slot, event.target.value)}
                         >
-                      <option value="">--</option>
+                          <option value="">--</option>
                           {equipmentOptions[slot].map((option) => (
                             <option key={option} value={option}>
                               {option}
@@ -1315,5 +1502,6 @@ export function PartyPlanner({
     </div>
   )
 }
+
 
 

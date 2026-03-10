@@ -19,6 +19,7 @@ VENV_DIR = ROOT_DIR / ".venv"
 BACKEND_DIR = ROOT_DIR / "backend"
 FRONTEND_DIR = ROOT_DIR / "frontend"
 REQUIREMENTS_FILE = BACKEND_DIR / "requirements.txt"
+WINDOWS_DEFAULT_PYTHON = Path(r"C:\Users\zaidi\AppData\Local\Programs\Python\Python314\python.exe")
 
 
 class CommandError(RuntimeError):
@@ -31,6 +32,38 @@ def _venv_bin(name: str) -> Path:
     return VENV_DIR / "bin" / name
 
 
+def _resolve_bootstrap_python() -> str:
+    configured = os.environ.get("BG3_PYTHON_EXE")
+    if configured:
+        configured_path = Path(configured).expanduser()
+        if not configured_path.exists():
+            raise CommandError(f"BG3_PYTHON_EXE is set but does not exist: {configured_path}")
+        return str(configured_path)
+
+    if WINDOWS_DEFAULT_PYTHON.exists():
+        return str(WINDOWS_DEFAULT_PYTHON)
+
+    return sys.executable
+
+
+def _is_venv_healthy() -> bool:
+    python_executable = _venv_bin("python")
+    if not python_executable.exists():
+        return False
+
+    try:
+        subprocess.run(
+            [str(python_executable), "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+    return True
+
+
 def _run(cmd: Sequence[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     cmd_display = " ".join(cmd)
     print(f"\n$ {cmd_display}")
@@ -41,11 +74,16 @@ def _run(cmd: Sequence[str], *, cwd: Path | None = None, env: dict[str, str] | N
 
 
 def create_virtualenv() -> None:
-    if VENV_DIR.exists():
+    if VENV_DIR.exists() and _is_venv_healthy():
         print(f"Virtual environment already present at {VENV_DIR}.")
         return
 
-    _run([sys.executable, "-m", "venv", str(VENV_DIR)])
+    if VENV_DIR.exists():
+        print(f"Virtual environment at {VENV_DIR} is invalid. Recreating it.")
+        shutil.rmtree(VENV_DIR)
+
+    bootstrap_python = _resolve_bootstrap_python()
+    _run([bootstrap_python, "-m", "venv", str(VENV_DIR)])
     print(f"Created virtual environment in {VENV_DIR}.")
 
 

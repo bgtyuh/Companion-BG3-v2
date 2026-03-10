@@ -1,11 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
 import re
 import sqlite3
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, TypeVar
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,7 @@ from . import schemas
 from .database import execute, fetch_all, fetch_one, get_connection
 
 EquipmentModel = TypeVar("EquipmentModel", bound=BaseModel)
+TransactionResult = TypeVar("TransactionResult")
 
 SPELL_SCHOOL_KEYWORDS: tuple[tuple[str, str], ...] = (
     ("abjuration", "Abjuration"),
@@ -298,44 +299,67 @@ def _safe_rollback(conn: sqlite3.Connection) -> None:
     except sqlite3.Error:
         logging.exception("Failed to rollback transaction")
 
+def _execute_build_transaction(
+    action: str,
+    work: Callable[[sqlite3.Connection], TransactionResult],
+) -> TransactionResult:
+    connection_manager = get_connection("companion")
+    try:
+        conn = connection_manager.__enter__()
+    except sqlite3.Error as exc:
+        logging.exception("Failed to %s build", action)
+        raise HTTPException(status_code=500, detail=f"Failed to {action} build") from exc
+
+    try:
+        result = work(conn)
+        conn.commit()
+        return result
+    except HTTPException:
+        _safe_rollback(conn)
+        raise
+    except sqlite3.Error as exc:
+        _safe_rollback(conn)
+        logging.exception("Failed to %s build", action)
+        raise HTTPException(status_code=500, detail=f"Failed to {action} build") from exc
+    finally:
+        close = getattr(conn, "close", None)
+        if callable(close):
+            try:
+                close()
+            except sqlite3.Error:
+                logging.exception("Failed to close connection after %s build", action)
+        try:
+            connection_manager.__exit__(None, None, None)
+        except sqlite3.Error:
+            logging.exception("Failed to exit connection manager after %s build", action)
+
 
 @app.post("/api/builds", response_model=schemas.Build, status_code=201)
 def create_build(payload: schemas.BuildCreate) -> schemas.Build:
-    try:
-        with get_connection("companion") as conn:
-            try:
-                cursor = conn.execute(
-                    """
-                    INSERT INTO builds (name, race, class, subclass, notes, skill_choices)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        payload.name,
-                        payload.race,
-                        payload.class_name,
-                        payload.subclass,
-                        payload.notes,
-                        _serialize_skill_choices(payload.skill_choices),
-                    ),
-                )
-                new_id = cursor.lastrowid
-                if not new_id:
-                    raise HTTPException(status_code=500, detail="Failed to create build")
-                _insert_build_levels(conn, build_id=int(new_id), levels=payload.levels, action="create")
+    def _create(conn: sqlite3.Connection) -> int:
+        cursor = conn.execute(
+            """
+            INSERT INTO builds (name, race, class, subclass, notes, skill_choices)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.name,
+                payload.race,
+                payload.class_name,
+                payload.subclass,
+                payload.notes,
+                _serialize_skill_choices(payload.skill_choices),
+            ),
+        )
+        new_id = cursor.lastrowid
+        if not new_id:
+            raise HTTPException(status_code=500, detail="Failed to create build")
+        _insert_build_levels(conn, build_id=int(new_id), levels=payload.levels, action="create")
+        return int(new_id)
 
-                conn.commit()
-            except HTTPException:
-                _safe_rollback(conn)
-                raise
-            except sqlite3.Error as exc:
-                _safe_rollback(conn)
-                logging.exception("Failed to create build")
-                raise HTTPException(status_code=500, detail="Failed to create build") from exc
-    except sqlite3.Error as exc:
-        logging.exception("Failed to create build")
-        raise HTTPException(status_code=500, detail="Failed to create build") from exc
+    new_id = _execute_build_transaction("create", _create)
     try:
-        return _load_build(int(new_id))
+        return _load_build(new_id)
     except sqlite3.Error as exc:
         logging.exception("Failed to load build %s after creation", new_id)
         raise HTTPException(status_code=500, detail="Failed to create build") from exc
@@ -343,45 +367,34 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
 
 @app.put("/api/builds/{build_id}", response_model=schemas.Build)
 def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
-    try:
-        with get_connection("companion") as conn:
-            try:
-                cursor = conn.execute(
-                    "SELECT id FROM builds WHERE id = ?",
-                    (build_id,),
-                )
-                existing = cursor.fetchone()
-                if existing is None:
-                    raise HTTPException(status_code=404, detail="Build not found")
+    def _update(conn: sqlite3.Connection) -> None:
+        cursor = conn.execute(
+            "SELECT id FROM builds WHERE id = ?",
+            (build_id,),
+        )
+        existing = cursor.fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Build not found")
 
-                conn.execute(
-                    "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ?, skill_choices = ? WHERE id = ?",
-                    (
-                        payload.name,
-                        payload.race,
-                        payload.class_name,
-                        payload.subclass,
-                        payload.notes,
-                        _serialize_skill_choices(payload.skill_choices),
-                        build_id,
-                    ),
-                )
-                conn.execute(
-                    "DELETE FROM build_levels WHERE build_id = ?",
-                    (build_id,),
-                )
-                _insert_build_levels(conn, build_id=build_id, levels=payload.levels, action="update")
-                conn.commit()
-            except HTTPException:
-                _safe_rollback(conn)
-                raise
-            except sqlite3.Error as exc:
-                _safe_rollback(conn)
-                logging.exception("Failed to update build %s", build_id)
-                raise HTTPException(status_code=500, detail="Failed to update build") from exc
-    except sqlite3.Error as exc:
-        logging.exception("Failed to update build %s", build_id)
-        raise HTTPException(status_code=500, detail="Failed to update build") from exc
+        conn.execute(
+            "UPDATE builds SET name = ?, race = ?, class = ?, subclass = ?, notes = ?, skill_choices = ? WHERE id = ?",
+            (
+                payload.name,
+                payload.race,
+                payload.class_name,
+                payload.subclass,
+                payload.notes,
+                _serialize_skill_choices(payload.skill_choices),
+                build_id,
+            ),
+        )
+        conn.execute(
+            "DELETE FROM build_levels WHERE build_id = ?",
+            (build_id,),
+        )
+        _insert_build_levels(conn, build_id=build_id, levels=payload.levels, action="update")
+
+    _execute_build_transaction("update", _update)
     try:
         return _load_build(build_id)
     except sqlite3.Error as exc:

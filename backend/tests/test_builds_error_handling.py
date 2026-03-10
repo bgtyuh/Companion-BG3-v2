@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import gc
 import shutil
 import sqlite3
 import tempfile
+import time
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
@@ -49,6 +51,27 @@ class BuildErrorHandlingTests(unittest.TestCase):
 
         def fetchone(self) -> dict | None:
             return self._fetchone
+
+    @staticmethod
+    def _wait_until_database_is_writable(path: Path, timeout_seconds: float = 8.0) -> None:
+        deadline = time.monotonic() + timeout_seconds
+        last_error: sqlite3.OperationalError | None = None
+
+        while time.monotonic() < deadline:
+            gc.collect()
+            try:
+                with sqlite3.connect(path, timeout=0.2) as conn:
+                    conn.execute('BEGIN IMMEDIATE')
+                    conn.execute('ROLLBACK')
+                return
+            except sqlite3.OperationalError as exc:
+                if 'locked' not in str(exc).lower():
+                    raise
+                last_error = exc
+                time.sleep(0.1)
+
+        if last_error is not None:
+            raise last_error
 
     def _mock_connection(self, execute_effects: list[object]) -> tuple[MagicMock, patch]:
         conn = MagicMock()
@@ -206,7 +229,7 @@ class BuildErrorHandlingTests(unittest.TestCase):
     def test_create_build_does_not_persist_levels_when_insertion_fails(self) -> None:
         payload = _build_payload(include_level=True)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             db_path = Path(tmpdir) / "bg3_companion.db"
             fixture_db = Path(__file__).resolve().parents[2] / "data" / "bg3_companion.db"
             shutil.copy(fixture_db, db_path)
@@ -255,6 +278,8 @@ class BuildErrorHandlingTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 500)
             self.assertEqual(response.json(), {"detail": "Failed to create build"})
+
+            self._wait_until_database_is_writable(db_path)
 
             with sqlite3.connect(db_path) as conn:
                 after_builds = conn.execute("SELECT COUNT(*) FROM builds").fetchone()[0]

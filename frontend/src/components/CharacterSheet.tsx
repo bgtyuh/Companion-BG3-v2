@@ -1,4 +1,4 @@
-﻿import { useMemo, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type {
   AbilityScoreKey,
   ArmourItem,

@@ -14,4 +14,22 @@ export default defineConfig({
       allow: [frontendDir, resourcesDir],
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return
+          }
+          if (id.includes('@tanstack/react-query')) {
+            return 'vendor-react-query'
+          }
+          if (id.includes('react')) {
+            return 'vendor-react'
+          }
+          return 'vendor'
+        },
+      },
+    },
+  },
 })

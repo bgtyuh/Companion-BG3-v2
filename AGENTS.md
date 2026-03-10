@@ -1,4 +1,4 @@
-﻿# AGENTS.md - Companion-BG3-v2
+# AGENTS.md - Companion-BG3-v2
 
 Ce fichier definit les regles de travail pour maintenir ce projet sans friction.
 
@@ -25,6 +25,7 @@ Regle : toute evolution d'endpoint doit garder **backend schema + client API + t
 
 1. Ne jamais hardcoder des chemins absolus de base de donnees.
    - Toujours passer par `DATABASE_PATHS` et `BG3_DATA_DIR`.
+   - Pour Python/venv, preferer `scripts/manage.py` et `BG3_PYTHON_EXE` plutot que des chemins hardcodes.
 2. Conserver les erreurs HTTP explicites (404 vs 500).
 3. Eviter la duplication : extraire des helpers quand une logique est repetee (mapping row -> schema, insertions multiples, etc.).
 4. Garder les migrations legeres dans `database.py` (approche additive, idempotente).

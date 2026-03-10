@@ -1,13 +1,10 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
 import type { Build, Enemy, LootItem } from './types'
-import { BestiaryPanel } from './components/BestiaryPanel'
-import { BuildLibrary } from './components/BuildLibrary'
-import { EquipmentTabs, type EquipmentTabId } from './components/EquipmentTabs'
+import type { EquipmentTabId } from './components/EquipmentTabs'
 import { LootChecklist } from './components/LootChecklist'
-import { PartyPlanner } from './components/PartyPlanner'
 import { SpellLibrary } from './components/SpellLibrary'
 import { FeatLibrary } from './components/FeatLibrary'
 import { AbilityReference } from './components/AbilityReference'
@@ -15,6 +12,19 @@ import { AbilityReference } from './components/AbilityReference'
 const LOOT_QUERY_KEY = ['lootItems'] as const
 const BUILDS_QUERY_KEY = ['builds'] as const
 const ENEMIES_QUERY_KEY = ['enemies'] as const
+
+const PartyPlanner = lazy(() =>
+  import('./components/PartyPlanner').then((module) => ({ default: module.PartyPlanner })),
+)
+const BuildLibrary = lazy(() =>
+  import('./components/BuildLibrary').then((module) => ({ default: module.BuildLibrary })),
+)
+const EquipmentTabs = lazy(() =>
+  import('./components/EquipmentTabs').then((module) => ({ default: module.EquipmentTabs })),
+)
+const BestiaryPanel = lazy(() =>
+  import('./components/BestiaryPanel').then((module) => ({ default: module.BestiaryPanel })),
+)
 
 type NamedEntity = { name: string }
 type IdentifiedEntity = { id: number }
@@ -293,45 +303,53 @@ function App() {
           </div>
 
           <div className="app__column app__column--wide">
-            <PartyPlanner
-              builds={builds}
-              races={races}
-              classes={classes}
-              spells={spells}
-              backgrounds={backgrounds}
-              equipment={equipmentCollections}
-            />
+            <Suspense fallback={<div className="app__status">Chargement du party planner...</div>}>
+              <PartyPlanner
+                builds={builds}
+                races={races}
+                classes={classes}
+                spells={spells}
+                backgrounds={backgrounds}
+                equipment={equipmentCollections}
+              />
+            </Suspense>
           </div>
 
           <div className="app__column">
-            <BuildLibrary
-              builds={builds}
-              races={races}
-              classes={classes}
-              onCreate={handleCreateBuild}
-              onUpdate={handleUpdateBuild}
-              onDelete={handleDeleteBuild}
-            />
-            <EquipmentTabs
-              armours={armours}
-              shields={shields}
-              weapons={weapons}
-              clothing={clothing}
-              headwears={headwears}
-              handwears={handwears}
-              footwears={footwears}
-              cloaks={cloaks}
-              rings={rings}
-              amulets={amulets}
-              onTabChange={handleEquipmentTabChange}
-            />
+            <Suspense fallback={<div className="app__status">Chargement de la bibliotheque de builds...</div>}>
+              <BuildLibrary
+                builds={builds}
+                races={races}
+                classes={classes}
+                onCreate={handleCreateBuild}
+                onUpdate={handleUpdateBuild}
+                onDelete={handleDeleteBuild}
+              />
+            </Suspense>
+            <Suspense fallback={<div className="app__status">Chargement des equipements...</div>}>
+              <EquipmentTabs
+                armours={armours}
+                shields={shields}
+                weapons={weapons}
+                clothing={clothing}
+                headwears={headwears}
+                handwears={handwears}
+                footwears={footwears}
+                cloaks={cloaks}
+                rings={rings}
+                amulets={amulets}
+                onTabChange={handleEquipmentTabChange}
+              />
+            </Suspense>
             <AbilityReference abilities={abilities} />
-            <BestiaryPanel
-              enemies={enemies}
-              onCreate={handleCreateEnemy}
-              onUpdate={handleUpdateEnemy}
-              onDelete={handleDeleteEnemy}
-            />
+            <Suspense fallback={<div className="app__status">Chargement du bestiaire...</div>}>
+              <BestiaryPanel
+                enemies={enemies}
+                onCreate={handleCreateEnemy}
+                onUpdate={handleUpdateEnemy}
+                onDelete={handleDeleteEnemy}
+              />
+            </Suspense>
           </div>
         </main>
       ) : null}

@@ -1,89 +1,75 @@
 # Companion-BG3-v2
 
-Companion-BG3 est une application compagnon pour Baldur's Gate 3. Elle associe un back-end FastAPI qui expose des bases de
-connaissances du jeu (équipements, sorts, classes, races…) et une interface React/Vite destinée au suivi de votre groupe.
-Vous pouvez y préparer vos builds, tracer l'évolution de chaque personnage et planifier le butin important à récupérer.
+Companion-BG3 est une application compagnon pour Baldur's Gate 3.
+Le projet combine:
+- un backend FastAPI (SQLite)
+- un frontend React + TypeScript (Vite)
 
-## Structure du dépôt
+## Structure
 
-- `backend/` – API FastAPI adossée à des fichiers SQLite.
-- `frontend/` – Application React + TypeScript bâtie avec Vite.
-- `data/` – Bases SQLite distribuées avec le projet.
+- `backend/`: API FastAPI
+- `frontend/`: interface React
+- `data/`: bases SQLite
+- `scripts/manage.py`: commandes de setup/lancement
 
-## Configuration de l'API côté front
+## Lancement rapide
 
-Le front consomme l'API via une variable d'environnement `VITE_API_BASE_URL`. Créez un fichier `frontend/.env` (ou
-`frontend/.env.local`) contenant par exemple :
+Depuis la racine du repo:
 
-```bash
-VITE_API_BASE_URL="http://localhost:8000"
+```powershell
+python scripts\manage.py setup
+python scripts\manage.py dev
 ```
 
-Adaptez l'URL si l'API est exposée sur une autre machine ou un autre port.
+Puis ouvrir:
+- Frontend: `http://localhost:5173`
+- API docs: `http://127.0.0.1:8000/docs`
 
-Si la variable n'est pas définie, le front tente automatiquement de contacter l'API
-sur le même hôte en supposant le port `8000` lorsque l'application est lancée avec
-`npm run dev` ou `npm run preview`. Cette valeur par défaut facilite le
-démarrage local, mais pensez à définir `VITE_API_BASE_URL` si votre API tourne
-sur un autre port ou une autre machine.
+## Changement de chemin Python (important)
 
-## Scripts npm utiles
+Si Python a ete deplace (ou si `.venv` est casse), `scripts/manage.py` detecte maintenant un venv invalide et le recree automatiquement.
 
-Depuis `frontend/` :
+Le script utilise cet ordre de priorite pour creer le venv:
+1. `BG3_PYTHON_EXE` (si defini)
+2. `C:\Users\zaidi\AppData\Local\Programs\Python\Python314\python.exe`
+3. `sys.executable`
 
-| Commande | Description |
-| --- | --- |
-| `npm run dev` | Démarre le serveur de développement Vite (http://localhost:5173). |
-| `npm run build` | Compile TypeScript et génère le bundle de production dans `dist/`. |
-| `npm run preview` | Sert le bundle généré pour validation locale. |
-| `npm run lint` | Vérifie le code avec ESLint. |
-| `npm test` | Alias du lint pour l'intégration continue. |
+Exemple recommande sur ta machine:
 
-## Instructions de développement
-
-Vous pouvez automatiser ces étapes grâce au script `scripts/manage.py` :
-
-```bash
-python scripts/manage.py setup        # installe les dépendances back et front
-python scripts/manage.py run-backend  # lance le serveur FastAPI (avec --no-reload pour désactiver le hot-reload)
-python scripts/manage.py run-frontend # lance le serveur de développement Vite
-python scripts/manage.py dev          # lance les deux serveurs et les arrête ensemble
+```powershell
+$env:BG3_PYTHON_EXE = "C:\Users\zaidi\AppData\Local\Programs\Python\Python314\python.exe"
+python scripts\manage.py setup-backend
 ```
 
-Les commandes restent optionnelles : vous pouvez toujours exécuter les instructions ci-dessous manuellement si vous préférez.
+Tu peux aussi lancer directement:
 
-1. **Préparer l'API**
-   ```bash
-   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2"
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r backend\requirements.txt
-   uvicorn backend.app.main:app --reload
-   ```
-   L'API écoute sur http://127.0.0.1:8000 et expose la documentation sur `/docs`.
+```powershell
+& "C:\Users\zaidi\AppData\Local\Programs\Python\Python314\python.exe" scripts\manage.py setup
+& "C:\Users\zaidi\AppData\Local\Programs\Python\Python314\python.exe" scripts\manage.py dev
+```
 
-2. **Préparer le front**
-   ```bash
-   cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/frontend"
-   npm install
-   npm run dev
-   ```
-   L'application est disponible sur http://localhost:5173. Assurez-vous que `VITE_API_BASE_URL` pointe bien vers l'API en cours
-d'exécution.
+## Commandes utiles
 
-## Instructions de build
+```powershell
+python scripts\manage.py setup-backend
+python scripts\manage.py setup-frontend
+python scripts\manage.py run-backend
+python scripts\manage.py run-frontend
+python scripts\manage.py dev
+```
 
-- **Front-end**
-  ```bash
-  cd "Documents/Projets Perso/GitHub Sync/Companion-BG3-v2/frontend"
-  npm install
-  npm run build
-  ```
-  Les fichiers statiques sont générés dans `frontend/dist/`. Servez-les via un serveur HTTP ou l'API (`npm run preview` pour un
-  test rapide).
+## Verification
 
-- **Back-end**
-  Le back-end Python ne requiert pas de build spécifique : un simple déploiement FastAPI (uvicorn/gunicorn + `backend.app.main`) et
-  l'accès aux fichiers `data/*.db` suffisent.
+```powershell
+cd frontend
+npm run lint
+npm run build
+```
 
-Bon développement !
+Si Python est disponible:
+
+```powershell
+cd ..
+.\.venv\Scripts\python.exe -m pip install pytest
+.\.venv\Scripts\python.exe -m pytest backend\tests
+```

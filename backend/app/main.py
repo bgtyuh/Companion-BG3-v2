@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import logging
@@ -84,6 +84,60 @@ def _deserialize_skill_choices(value: Any) -> list[str]:
     return []
 
 
+def _build_level_from_row(row: Dict[str, Any]) -> schemas.BuildLevel:
+    return schemas.BuildLevel(
+        id=row["id"],
+        level=row["level"],
+        spells=row.get("spells") or "",
+        feats=row.get("feats") or "",
+        subclass_choice=row.get("subclass_choice") or "",
+        multiclass_choice=row.get("multiclass_choice") or "",
+        note=row.get("note") or "",
+    )
+
+
+def _build_from_row(build_row: Dict[str, Any], levels: list[schemas.BuildLevel]) -> schemas.Build:
+    return schemas.Build(
+        id=build_row["id"],
+        name=build_row["name"],
+        race=build_row.get("race"),
+        class_name=build_row.get("class"),
+        subclass=build_row.get("subclass"),
+        notes=build_row.get("notes"),
+        skill_choices=_deserialize_skill_choices(build_row.get("skill_choices")),
+        levels=levels,
+    )
+
+
+def _insert_build_levels(
+    conn: sqlite3.Connection,
+    *,
+    build_id: int,
+    levels: Iterable[schemas.BuildLevelCreate],
+    action: str,
+) -> None:
+    for level in levels:
+        try:
+            conn.execute(
+                """
+                INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    build_id,
+                    level.level,
+                    level.spells or "",
+                    level.feats or "",
+                    level.subclass_choice or "",
+                    level.multiclass_choice or "",
+                    level.note or "",
+                ),
+            )
+        except sqlite3.Error:
+            logging.exception("Failed to %s level %s for build %s", action, level.level, build_id)
+            raise
+
+
 def _load_build(build_id: int) -> schemas.Build:
     build_row = fetch_one(
         "companion",
@@ -97,28 +151,8 @@ def _load_build(build_id: int) -> schemas.Build:
         "SELECT id, level, spells, feats, subclass_choice, multiclass_choice, note FROM build_levels WHERE build_id = ? ORDER BY level",
         (build_id,),
     )
-    levels = [
-        schemas.BuildLevel(
-            id=row["id"],
-            level=row["level"],
-            spells=row.get("spells") or "",
-            feats=row.get("feats") or "",
-            subclass_choice=row.get("subclass_choice") or "",
-            multiclass_choice=row.get("multiclass_choice") or "",
-            note=row.get("note") or "",
-        )
-        for row in level_rows
-    ]
-    return schemas.Build(
-        id=build_row["id"],
-        name=build_row["name"],
-        race=build_row.get("race"),
-        class_name=build_row.get("class"),
-        subclass=build_row.get("subclass"),
-        notes=build_row.get("notes"),
-        skill_choices=_deserialize_skill_choices(build_row.get("skill_choices")),
-        levels=levels,
-    )
+    levels = [_build_level_from_row(row) for row in level_rows]
+    return _build_from_row(build_row, levels)
 
 
 @app.get("/api/loot", response_model=List[schemas.LootItem])
@@ -244,32 +278,11 @@ def list_builds() -> List[schemas.Build]:
     )
     grouped_levels: Dict[int, List[schemas.BuildLevel]] = defaultdict(list)
     for row in level_rows:
-        grouped_levels[row["build_id"]].append(
-            schemas.BuildLevel(
-                id=row["id"],
-                level=row["level"],
-                spells=row.get("spells") or "",
-                feats=row.get("feats") or "",
-                subclass_choice=row.get("subclass_choice") or "",
-                multiclass_choice=row.get("multiclass_choice") or "",
-                note=row.get("note") or "",
-            )
-        )
+        grouped_levels[row["build_id"]].append(_build_level_from_row(row))
 
     builds: List[schemas.Build] = []
     for row in build_rows:
-        builds.append(
-            schemas.Build(
-                id=row["id"],
-                name=row["name"],
-                race=row.get("race"),
-                class_name=row.get("class"),
-                subclass=row.get("subclass"),
-                notes=row.get("notes"),
-                skill_choices=_deserialize_skill_choices(row.get("skill_choices")),
-                levels=grouped_levels.get(row["id"], []),
-            )
-        )
+        builds.append(_build_from_row(row, grouped_levels.get(row["id"], [])))
     return builds
 
 
@@ -308,29 +321,7 @@ def create_build(payload: schemas.BuildCreate) -> schemas.Build:
                 new_id = cursor.lastrowid
                 if not new_id:
                     raise HTTPException(status_code=500, detail="Failed to create build")
-
-                for level in payload.levels:
-                    try:
-                        conn.execute(
-                            """
-                            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (
-                                new_id,
-                                level.level,
-                                level.spells or "",
-                                level.feats or "",
-                                level.subclass_choice or "",
-                                level.multiclass_choice or "",
-                                level.note or "",
-                            ),
-                        )
-                    except sqlite3.Error as exc:
-                        logging.exception(
-                            "Failed to create level %s for build %s", level.level, new_id
-                        )
-                        raise
+                _insert_build_levels(conn, build_id=int(new_id), levels=payload.levels, action="create")
 
                 conn.commit()
             except HTTPException:
@@ -379,28 +370,7 @@ def update_build(build_id: int, payload: schemas.BuildCreate) -> schemas.Build:
                     "DELETE FROM build_levels WHERE build_id = ?",
                     (build_id,),
                 )
-                for level in payload.levels:
-                    try:
-                        conn.execute(
-                            """
-                            INSERT INTO build_levels (build_id, level, spells, feats, subclass_choice, multiclass_choice, note)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (
-                                build_id,
-                                level.level,
-                                level.spells or "",
-                                level.feats or "",
-                                level.subclass_choice or "",
-                                level.multiclass_choice or "",
-                                level.note or "",
-                            ),
-                        )
-                    except sqlite3.Error as exc:
-                        logging.exception(
-                            "Failed to update level %s for build %s", level.level, build_id
-                        )
-                        raise
+                _insert_build_levels(conn, build_id=build_id, levels=payload.levels, action="update")
                 conn.commit()
             except HTTPException:
                 _safe_rollback(conn)
@@ -1078,3 +1048,10 @@ def list_abilities() -> List[schemas.Ability]:
         )
         for row in abilities
     ]
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import './App.css'
 import { api } from './api'
@@ -12,7 +12,14 @@ import { SpellLibrary } from './components/SpellLibrary'
 import { FeatLibrary } from './components/FeatLibrary'
 import { AbilityReference } from './components/AbilityReference'
 
-function sortByName<T extends { name: string }>(items: T[]): T[] {
+const LOOT_QUERY_KEY = ['lootItems'] as const
+const BUILDS_QUERY_KEY = ['builds'] as const
+const ENEMIES_QUERY_KEY = ['enemies'] as const
+
+type NamedEntity = { name: string }
+type IdentifiedEntity = { id: number }
+
+function sortByName<T extends NamedEntity>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
 }
 
@@ -32,15 +39,15 @@ function App() {
   })
 
   const lootQuery = useQuery({
-    queryKey: ['lootItems'],
+    queryKey: LOOT_QUERY_KEY,
     queryFn: async () => sortByName(await api.getLootItems()),
   })
   const buildsQuery = useQuery({
-    queryKey: ['builds'],
+    queryKey: BUILDS_QUERY_KEY,
     queryFn: async () => sortByName(await api.getBuilds()),
   })
   const enemiesQuery = useQuery({
-    queryKey: ['enemies'],
+    queryKey: ENEMIES_QUERY_KEY,
     queryFn: async () => sortByName(await api.getEnemies()),
   })
   const armoursQuery = useQuery({
@@ -152,6 +159,24 @@ function App() {
     })
   }
 
+  function appendSortedItem<T extends NamedEntity>(queryKey: readonly [string], item: T) {
+    queryClient.setQueryData<T[]>(queryKey, (items = []) => sortByName([...items, item]))
+  }
+
+  function replaceSortedItem<T extends NamedEntity & IdentifiedEntity>(
+    queryKey: readonly [string],
+    id: number,
+    item: T,
+  ) {
+    queryClient.setQueryData<T[]>(queryKey, (items = []) =>
+      sortByName(items.map((entry) => (entry.id === id ? item : entry))),
+    )
+  }
+
+  function removeItemById<T extends IdentifiedEntity>(queryKey: readonly [string], id: number) {
+    queryClient.setQueryData<T[]>(queryKey, (items = []) => items.filter((entry) => entry.id !== id))
+  }
+
   const isLoading = primaryQueries.some((query) => query.isPending && query.fetchStatus !== 'idle')
   const firstError = queries.find((query) => query.error)?.error
   const error =
@@ -159,96 +184,85 @@ function App() {
       ? null
       : firstError instanceof Error
         ? firstError.message
-        : 'Impossible de charger les données.'
+        : 'Impossible de charger les donnees.'
 
   async function handleCreateLoot(payload: { name: string; type?: string; region?: string; description?: string }) {
     const created = await api.createLootItem({ ...payload, is_collected: false })
-    queryClient.setQueryData<LootItem[]>(['lootItems'], (items = []) => sortByName([...items, created]))
+    appendSortedItem(LOOT_QUERY_KEY, created)
   }
 
   async function handleToggleLoot(item: LootItem) {
     const updated = await api.updateLootItem(item.id, { is_collected: !item.is_collected })
-    queryClient.setQueryData<LootItem[]>(['lootItems'], (items = []) =>
-      sortByName(items.map((entry) => (entry.id === item.id ? updated : entry))),
-    )
+    replaceSortedItem(LOOT_QUERY_KEY, item.id, updated)
   }
 
   async function handleDeleteLoot(item: LootItem) {
     await api.deleteLootItem(item.id)
-    queryClient.setQueryData<LootItem[]>(['lootItems'], (items = []) =>
-      items.filter((entry) => entry.id !== item.id),
-    )
+    removeItemById<LootItem>(LOOT_QUERY_KEY, item.id)
   }
 
   async function handleCreateBuild(build: Omit<Build, 'id'>) {
     const created = await api.createBuild(build)
-    queryClient.setQueryData<Build[]>(['builds'], (items = []) => sortByName([...items, created]))
+    appendSortedItem(BUILDS_QUERY_KEY, created)
   }
 
   async function handleUpdateBuild(id: number, build: Omit<Build, 'id'>) {
     const updated = await api.updateBuild(id, build)
-    queryClient.setQueryData<Build[]>(['builds'], (items = []) =>
-      sortByName(items.map((entry) => (entry.id === id ? updated : entry))),
-    )
+    replaceSortedItem(BUILDS_QUERY_KEY, id, updated)
   }
 
   async function handleDeleteBuild(id: number) {
     await api.deleteBuild(id)
-    queryClient.setQueryData<Build[]>(['builds'], (items = []) => items.filter((entry) => entry.id !== id))
+    removeItemById<Build>(BUILDS_QUERY_KEY, id)
   }
 
   async function handleCreateEnemy(enemy: Omit<Enemy, 'id'>) {
     const created = await api.createEnemy(enemy)
-    queryClient.setQueryData<Enemy[]>(['enemies'], (items = []) => sortByName([...items, created]))
+    appendSortedItem(ENEMIES_QUERY_KEY, created)
   }
 
   async function handleUpdateEnemy(id: number, enemy: Omit<Enemy, 'id'>) {
     const updated = await api.updateEnemy(id, enemy)
-    queryClient.setQueryData<Enemy[]>(['enemies'], (items = []) =>
-      sortByName(items.map((entry) => (entry.id === id ? updated : entry))),
-    )
+    replaceSortedItem(ENEMIES_QUERY_KEY, id, updated)
   }
 
   async function handleDeleteEnemy(id: number) {
     await api.deleteEnemy(id)
-    queryClient.setQueryData<Enemy[]>(['enemies'], (items = []) => items.filter((entry) => entry.id !== id))
+    removeItemById<Enemy>(ENEMIES_QUERY_KEY, id)
   }
 
-  const lootItems = useMemo(() => lootQuery.data ?? [], [lootQuery.data])
-  const builds = useMemo(() => buildsQuery.data ?? [], [buildsQuery.data])
-  const enemies = useMemo(() => enemiesQuery.data ?? [], [enemiesQuery.data])
-  const armours = useMemo(() => armoursQuery.data ?? [], [armoursQuery.data])
-  const rings = useMemo(() => ringsQuery.data ?? [], [ringsQuery.data])
-  const amulets = useMemo(() => amuletsQuery.data ?? [], [amuletsQuery.data])
-  const cloaks = useMemo(() => cloaksQuery.data ?? [], [cloaksQuery.data])
-  const clothing = useMemo(() => clothingQuery.data ?? [], [clothingQuery.data])
-  const footwears = useMemo(() => footwearsQuery.data ?? [], [footwearsQuery.data])
-  const handwears = useMemo(() => handwearsQuery.data ?? [], [handwearsQuery.data])
-  const headwears = useMemo(() => headwearsQuery.data ?? [], [headwearsQuery.data])
-  const shields = useMemo(() => shieldsQuery.data ?? [], [shieldsQuery.data])
-  const weapons = useMemo(() => weaponsQuery.data ?? [], [weaponsQuery.data])
-  const spells = useMemo(() => spellsQuery.data ?? [], [spellsQuery.data])
-  const races = useMemo(() => racesQuery.data ?? [], [racesQuery.data])
-  const classes = useMemo(() => classesQuery.data ?? [], [classesQuery.data])
-  const backgrounds = useMemo(() => backgroundsQuery.data ?? [], [backgroundsQuery.data])
-  const feats = useMemo(() => featsQuery.data ?? [], [featsQuery.data])
-  const abilities = useMemo(() => abilitiesQuery.data ?? [], [abilitiesQuery.data])
+  const lootItems = lootQuery.data ?? []
+  const builds = buildsQuery.data ?? []
+  const enemies = enemiesQuery.data ?? []
+  const armours = armoursQuery.data ?? []
+  const rings = ringsQuery.data ?? []
+  const amulets = amuletsQuery.data ?? []
+  const cloaks = cloaksQuery.data ?? []
+  const clothing = clothingQuery.data ?? []
+  const footwears = footwearsQuery.data ?? []
+  const handwears = handwearsQuery.data ?? []
+  const headwears = headwearsQuery.data ?? []
+  const shields = shieldsQuery.data ?? []
+  const weapons = weaponsQuery.data ?? []
+  const spells = spellsQuery.data ?? []
+  const races = racesQuery.data ?? []
+  const classes = classesQuery.data ?? []
+  const backgrounds = backgroundsQuery.data ?? []
+  const feats = featsQuery.data ?? []
+  const abilities = abilitiesQuery.data ?? []
 
-  const equipmentCollections = useMemo(
-    () => ({
-      armours,
-      weapons,
-      shields,
-      clothing,
-      headwears,
-      handwears,
-      footwears,
-      cloaks,
-      rings,
-      amulets,
-    }),
-    [armours, weapons, shields, clothing, headwears, handwears, footwears, cloaks, rings, amulets],
-  )
+  const equipmentCollections = {
+    armours,
+    weapons,
+    shields,
+    clothing,
+    headwears,
+    handwears,
+    footwears,
+    cloaks,
+    rings,
+    amulets,
+  }
 
   return (
     <div className="app">
@@ -326,3 +340,4 @@ function App() {
 }
 
 export default App
+

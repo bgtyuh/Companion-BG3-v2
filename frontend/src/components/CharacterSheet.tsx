@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+﻿import { useMemo, type ReactNode } from 'react'
 import type {
   AbilityScoreKey,
   ArmourItem,
@@ -21,6 +21,7 @@ import { getProgressionHighlights } from '../utils/progression'
 import { describeBuildSpellPlan, getSpellLevelLabel, parseBuildSpellPlan, sortSpellsByLevel } from '../utils/spells'
 import { IconCard } from './IconCard'
 import { Panel } from './Panel'
+import { renderAccessoryTooltip, renderArmourTooltip, renderWeaponTooltip } from './equipmentCardContent'
 
 interface CharacterSheetProps {
   member: PartyMember | null
@@ -121,199 +122,14 @@ function resolveIconUrl(
   return null
 }
 
-function renderAccessoryTooltip(item: AccessoryItemBase, extras: ReactNode[] = []) {
-  const location = item.locations[0]?.description
-  const specials = item.specials.slice(0, 3)
-
-  return (
-    <>
-      <div className="icon-grid__tooltip-meta">
-        {item.type ? (
-          <span>
-            <strong>Type :</strong> {item.type}
-          </span>
-        ) : null}
-        {item.rarity ? (
-          <span>
-            <strong>Rareté :</strong> {item.rarity}
-          </span>
-        ) : null}
-        {extras.map((content, index) => (
-          <span key={index}>{content}</span>
-        ))}
-        {item.price_gp != null ? (
-          <span>
-            <strong>Prix :</strong> {item.price_gp} po
-          </span>
-        ) : null}
-      </div>
-      {item.description ? <p className="icon-grid__tooltip-description">{item.description}</p> : null}
-      {specials.length ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Effets</strong>
-          <ul className="icon-grid__tooltip-list">
-            {specials.map((special) => (
-              <li key={special.name}>
-                <span className="icon-grid__tooltip-list-title">{special.name}</span>
-                {special.effect ? <span>{special.effect}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {location ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Obtention</strong>
-          <p>{location}</p>
-        </div>
-      ) : null}
-      {item.quote ? <p className="icon-grid__tooltip-quote">{item.quote}</p> : null}
-    </>
-  )
-}
-
-function renderArmourTooltip(item: ArmourItem) {
-  const specials = item.specials.slice(0, 3)
-  const location = item.locations[0]?.description
-
-  return (
-    <>
-      <div className="icon-grid__tooltip-meta">
-        {item.type ? (
-          <span>
-            <strong>Type :</strong> {item.type}
-          </span>
-        ) : null}
-        {item.rarity ? (
-          <span>
-            <strong>Rareté :</strong> {item.rarity}
-          </span>
-        ) : null}
-        <span>
-          <strong>Classe d'armure :</strong> {item.armour_class_base ?? '—'}
-          {item.armour_class_modifier ? ` (${item.armour_class_modifier})` : ''}
-        </span>
-        {item.weight_kg != null ? (
-          <span>
-            <strong>Poids :</strong> {item.weight_kg} kg
-          </span>
-        ) : null}
-      </div>
-      {item.description ? <p className="icon-grid__tooltip-description">{item.description}</p> : null}
-      {specials.length ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Effets</strong>
-          <ul className="icon-grid__tooltip-list">
-            {specials.map((special) => (
-              <li key={special.name}>
-                <span className="icon-grid__tooltip-list-title">{special.name}</span>
-                {special.effect ? <span>{special.effect}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {location ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Obtention</strong>
-          <p>{location}</p>
-        </div>
-      ) : null}
-      {item.quote ? <p className="icon-grid__tooltip-quote">{item.quote}</p> : null}
-    </>
-  )
-}
-
-function renderWeaponTooltip(item: WeaponItem) {
-  const damages = item.damages.slice(0, 3)
-  const actions = item.actions.slice(0, 2)
-  const abilities = item.abilities.slice(0, 2)
-  const location = item.locations[0]?.description
-
-  return (
-    <>
-      <div className="icon-grid__tooltip-meta">
-        {item.type ? (
-          <span>
-            <strong>Type :</strong> {item.type}
-          </span>
-        ) : null}
-        {item.rarity ? (
-          <span>
-            <strong>Rareté :</strong> {item.rarity}
-          </span>
-        ) : null}
-        {item.enchantment ? (
-          <span>
-            <strong>Enchantement :</strong> +{item.enchantment}
-          </span>
-        ) : null}
-        {item.attributes ? (
-          <span>
-            <strong>Attributs :</strong> {item.attributes}
-          </span>
-        ) : null}
-      </div>
-      {item.description ? <p className="icon-grid__tooltip-description">{item.description}</p> : null}
-      {damages.length ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Dégâts</strong>
-          <ul className="icon-grid__tooltip-list">
-            {damages.map((damage, index) => (
-              <li key={`${item.weapon_id}-damage-${index}`}>
-                <span className="icon-grid__tooltip-list-title">{damage.damage_type ?? '—'}</span>
-                <span>
-                  {damage.damage_dice ?? '—'} {damage.modifier ? `(${damage.modifier})` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {actions.length ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Actions</strong>
-          <ul className="icon-grid__tooltip-list">
-            {actions.map((action) => (
-              <li key={action.name}>
-                <span className="icon-grid__tooltip-list-title">{action.name}</span>
-                {action.description ? <span>{action.description}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {abilities.length ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Propriétés</strong>
-          <ul className="icon-grid__tooltip-list">
-            {abilities.map((ability) => (
-              <li key={ability.name}>
-                <span className="icon-grid__tooltip-list-title">{ability.name}</span>
-                {ability.description ? <span>{ability.description}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {location ? (
-        <div className="icon-grid__tooltip-section">
-          <strong>Obtention</strong>
-          <p>{location}</p>
-        </div>
-      ) : null}
-    </>
-  )
-}
-
 function parseChoiceList(value?: string | null): string[] {
   if (!value) {
     return []
   }
 
   return value
-    .split(/\r?\n|•/)
-    .map((entry) => entry.replace(/^[\s•\-–—]+/, '').trim())
+    .split(/\r?\n|\u2022/)
+    .map((entry) => entry.replace(/^[\s\u2022\-*]+/, '').trim())
     .filter((entry) => entry.length > 0)
 }
 
@@ -573,7 +389,7 @@ export function CharacterSheet({
                   <h5>Préparez le niveau {nextLevel}</h5>
                   <div className="character-sheet__next-step-group">
                     <p>
-                      <strong>Sorts :</strong> {nextStepSpellSummary || '—'}
+                      <strong>Sorts :</strong> {nextStepSpellSummary || 'Aucun'}
                     </p>
                     {nextStepSpellInsights &&
                     (nextStepSpellInsights.toLearn.length ||
@@ -582,19 +398,19 @@ export function CharacterSheet({
                       <ul className="character-sheet__next-step-list">
                         {nextStepSpellInsights.toLearn.length ? (
                           <li>
-                            <span className="character-sheet__next-step-emphasis">À apprendre :</span>{' '}
+                            <span className="character-sheet__next-step-emphasis">A apprendre :</span>{' '}
                             {nextStepSpellInsights.toLearn.join(', ')}
                           </li>
                         ) : null}
                         {nextStepSpellInsights.replacements.map((entry, index) => (
-                          <li key={`${entry.previous}→${entry.next}-${index}`}>
+                          <li key={`${entry.previous}->${entry.next}-${index}`}>
                             <span className="character-sheet__next-step-emphasis">Remplacer :</span>{' '}
-                            {entry.previous ? `${entry.previous} → ${entry.next}` : entry.next}
+                            {entry.previous ? `${entry.previous} -> ${entry.next}` : entry.next}
                           </li>
                         ))}
                         {nextStepSpellInsights.toRemove.length ? (
                           <li>
-                            <span className="character-sheet__next-step-emphasis">À oublier :</span>{' '}
+                            <span className="character-sheet__next-step-emphasis">A oublier :</span>{' '}
                             {nextStepSpellInsights.toRemove.join(', ')}
                           </li>
                         ) : null}
@@ -603,7 +419,7 @@ export function CharacterSheet({
                   </div>
                   <div className="character-sheet__next-step-group">
                     <p>
-                      <strong>Dons :</strong> {nextStep.feats || '—'}
+                      <strong>Dons :</strong> {nextStep.feats || 'Aucun'}
                     </p>
                     {nextStepFeatList.length ? (
                       <ul className="character-sheet__next-step-list">
@@ -616,7 +432,7 @@ export function CharacterSheet({
                   <div className="character-sheet__next-step-group">
                     <p>
                       <strong>Choix spéciaux :</strong>{' '}
-                      {nextStep.subclass_choice || nextStep.multiclass_choice || '—'}
+                      {nextStep.subclass_choice || nextStep.multiclass_choice || 'Aucun'}
                     </p>
                     {nextStepSpecialChoices.length ? (
                       <ul className="character-sheet__next-step-list">
@@ -661,13 +477,13 @@ export function CharacterSheet({
         <div>
           <h4>Compétences</h4>
           <ul className="tag-list">
-            {member.skills.length ? member.skills.map((skill) => <li key={skill}>{skill}</li>) : <li className="empty">—</li>}
+            {member.skills.length ? member.skills.map((skill) => <li key={skill}>{skill}</li>) : <li className="empty">Aucune</li>}
           </ul>
         </div>
       </section>
 
       <section className="character-sheet__equipment">
-        <h4>Équipement</h4>
+        <h4>Equipement</h4>
         <div className="equipment-layout equipment-layout--sheet">
           <div className="equipment-layout__character" aria-hidden="true">
             <span>{member.name}</span>
@@ -692,7 +508,7 @@ export function CharacterSheet({
                     </IconCard>
                   </div>
                 ) : (
-                  <span className="equipment-slot__value equipment-slot__value--empty">—</span>
+                  <span className="equipment-slot__value equipment-slot__value--empty">Aucun</span>
                 )}
               </div>
             )
@@ -746,7 +562,7 @@ export function CharacterSheet({
                     <strong>Niveau {entry.level}</strong>
                   </div>
                   <div>
-                    <strong>Traits :</strong> {entry.features || '—'}
+                    <strong>Traits :</strong> {entry.features || 'Aucun'}
                   </div>
                   {progressionHighlights.map((highlight) => (
                     <div key={highlight.label}>
@@ -762,3 +578,5 @@ export function CharacterSheet({
     </Panel>
   )
 }
+
+

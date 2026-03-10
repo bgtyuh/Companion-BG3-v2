@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useLocalStorage } from '../hooks'
 import type {
@@ -114,7 +114,6 @@ type PartyMemberInput = Omit<PartyMember, 'equipment'> & {
   equipment?: unknown
   equippedArmour?: unknown
   equippedWeapons?: unknown
-  savingThrows?: unknown
   act?: unknown
   role?: unknown
 }
@@ -841,7 +840,7 @@ export function PartyPlanner({
                         })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {PARTY_ACT_OPTIONS.map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -860,7 +859,7 @@ export function PartyPlanner({
                         })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {PARTY_ROLE_OPTIONS.map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -879,7 +878,7 @@ export function PartyPlanner({
                         })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {builds.map((build) => (
                         <option key={build.id} value={build.id}>
                           {build.name}
@@ -902,7 +901,7 @@ export function PartyPlanner({
                         })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {races.map((race) => (
                         <option key={race.name} value={race.name}>
                           {race.name}
@@ -918,7 +917,7 @@ export function PartyPlanner({
                         setEditingMember({ ...editingMember, subrace: event.target.value || undefined })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {races
                         .find((race) => race.name === editingMember.race)
                         ?.subraces.map((subrace) => (
@@ -940,7 +939,7 @@ export function PartyPlanner({
                         })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {classes.map((klass) => (
                         <option key={klass.name} value={klass.name}>
                           {klass.name}
@@ -956,7 +955,7 @@ export function PartyPlanner({
                         setEditingMember({ ...editingMember, subclass: event.target.value || undefined })
                       }
                     >
-                      <option value="">—</option>
+                      <option value="">--</option>
                       {classes
                         .find((klass) => klass.name === editingMember.class_name)
                         ?.subclasses.map((subclass) => (
@@ -979,7 +978,7 @@ export function PartyPlanner({
                       })
                     }
                   >
-                    <option value="">—</option>
+                      <option value="">--</option>
                     {backgroundOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -1096,7 +1095,7 @@ export function PartyPlanner({
                                     {buildAlignment.recommendedClass}
                                   </span>{' '}
                                   <span className="party-form__build-check-note">
-                                    Actuel : {buildAlignment.currentClass || '—'}
+                                    Actuel : {buildAlignment.currentClass || 'Aucun'}
                                   </span>
                                 </>
                               ) : (
@@ -1113,7 +1112,7 @@ export function PartyPlanner({
                                     {buildAlignment.recommendedSubclass}
                                   </span>{' '}
                                   <span className="party-form__build-check-note">
-                                    Actuelle : {buildAlignment.currentSubclass || '—'}
+                                    Actuelle : {buildAlignment.currentSubclass || 'Aucune'}
                                   </span>
                                 </>
                               ) : (
@@ -1128,13 +1127,13 @@ export function PartyPlanner({
                                 <ul>
                                   {buildAlignment.skillMissing.length ? (
                                     <li>
-                                      <span className="party-form__build-check-warning">À ajouter :</span>{' '}
+                                      <span className="party-form__build-check-warning">A ajouter :</span>{' '}
                                       {buildAlignment.skillMissing.join(', ')}
                                     </li>
                                   ) : null}
                                   {buildAlignment.skillExtra.length ? (
                                     <li>
-                                      <span className="party-form__build-check-warning">À retirer :</span>{' '}
+                                      <span className="party-form__build-check-warning">A retirer :</span>{' '}
                                       {buildAlignment.skillExtra.join(', ')}
                                     </li>
                                   ) : null}
@@ -1153,13 +1152,13 @@ export function PartyPlanner({
                                 <ul>
                                   {buildAlignment.missingSpells.length ? (
                                     <li>
-                                      <span className="party-form__build-check-warning">À apprendre :</span>{' '}
+                                      <span className="party-form__build-check-warning">A apprendre :</span>{' '}
                                       {buildAlignment.missingSpells.join(', ')}
                                     </li>
                                   ) : null}
                                   {buildAlignment.spellsToRemove.length ? (
                                     <li>
-                                      <span className="party-form__build-check-warning">À retirer :</span>{' '}
+                                      <span className="party-form__build-check-warning">A retirer :</span>{' '}
                                       {buildAlignment.spellsToRemove.join(', ')}
                                     </li>
                                   ) : null}
@@ -1177,12 +1176,12 @@ export function PartyPlanner({
                           ) : null}
                           {buildAlignment.hasEquipmentRecommendations ? (
                             <li>
-                              <strong>Équipement :</strong>{' '}
+                              <strong>Equipement :</strong>{' '}
                               {buildAlignment.equipmentDiffs.length ? (
                                 <ul>
                                   {buildAlignment.equipmentDiffs.map((entry) => (
                                     <li key={entry.slot}>
-                                      {entry.label} → {entry.recommended}
+                                      {entry.label}{' -> '}{entry.recommended}
                                       <span className="party-form__build-check-note">
                                         {' '}
                                         (actuel : {entry.current ?? 'non équipé'})
@@ -1210,7 +1209,7 @@ export function PartyPlanner({
                 ) : null}
 
                 <section className="equipment-editor">
-                  <h4>Équipement</h4>
+                  <h4>Equipement</h4>
                   <div className="equipment-layout equipment-layout--editor">
                     <div className="equipment-layout__character" aria-hidden="true">
                       <span>Portrait</span>
@@ -1223,7 +1222,7 @@ export function PartyPlanner({
                           value={editingMember.equipment?.[slot] ?? ''}
                           onChange={(event) => handleEquipmentChange(slot, event.target.value)}
                         >
-                          <option value="">—</option>
+                      <option value="">--</option>
                           {equipmentOptions[slot].map((option) => (
                             <option key={option} value={option}>
                               {option}
@@ -1264,7 +1263,7 @@ export function PartyPlanner({
                         <li key={spell}>
                           {spell}
                           <button type="button" onClick={() => removeSpell(spell)}>
-                            ×
+                            x
                           </button>
                         </li>
                       ))}
@@ -1316,3 +1315,5 @@ export function PartyPlanner({
     </div>
   )
 }
+
+
